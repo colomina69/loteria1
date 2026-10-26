@@ -1,0 +1,118 @@
+import { esPagoActivo, tipoDesdeNombre } from "../derive";
+import type {
+  PagoRow,
+  SorteoConPagos,
+  SorteoResumen,
+  SorteoRow,
+} from "../database.types";
+import { supabase } from "../supabase";
+
+type PagoMini = Pick<PagoRow, "estado" | "abonado_id" | "fecha_pago">;
+
+type SorteoRaw = SorteoRow & {
+  pagos: PagoMini[] | null;
+};
+
+const SORTEO_RESUMEN_SELECT =
+  "id,nombre,fecha,precio,created_at,pagos(estado,abonado_id,fecha_pago)";
+
+function resumirSorteo(sorteo: SorteoRaw): SorteoResumen {
+  const pagos = sorteo.pagos ?? [];
+  const activos = pagos.filter(esPagoActivo);
+  const abonados = new Set(activos.map((pago) => pago.abonado_id));
+  const { pagos: _pagos, ...base } = sorteo;
+
+  return {
+    ...base,
+    precio: Number(base.precio),
+    tipo: tipoDesdeNombre(base.nombre),
+    decimos: activos.length,
+    abonadosCobrados: abonados.size,
+    recaudado: activos.length * Number(base.precio),
+    entregados: activos.filter((pago) => pago.estado === "delivered").length,
+    pendientes: pagos.filter((pago) => pago.estado === "pending").length,
+  };
+}
+
+export async function listSorteos(): Promise<SorteoResumen[]> {
+  const { data, error } = await supabase
+    .from("sorteos")
+    .select(SORTEO_RESUMEN_SELECT)
+    .order("fecha", { ascending: false })
+    .returns<SorteoRaw[]>();
+
+  if (error) throw error;
+  return (data ?? []).map(resumirSorteo);
+}
+
+export async function getSorteo(id: string): Promise<SorteoConPagos> {
+  const { data, error } = await supabase
+    .from("sorteos")
+    .select("id,nombre,fecha,precio,created_at,pagos(*,abonado:abonados(id,nombre,activo))")
+    .eq("id", id)
+    .maybeSingle()
+    .returns<SorteoConPagos>();
+
+  if (error) throw error;
+  if (!data) throw new Error("No se ha encontrado el sorteo.");
+  return { ...data, precio: Number(data.precio), pagos: data.pagos ?? [] };
+}
+
+export type CrearSorteoInput = {
+  nombre: string;
+  fecha: string;
+  precio: number;
+};
+
+export async function crearSorteo(input: CrearSorteoInput): Promise<SorteoRow> {
+  const { data, error } = await supabase
+    .from("sorteos")
+    .insert({
+      nombre: input.nombre.trim(),
+      fecha: input.fecha,
+      precio: input.precio,
+    })
+    .select("id,nombre,fecha,precio,created_at")
+    .single()
+    .returns<SorteoRow>();
+
+  if (error) throw error;
+  return data;
+}
+
+export type ActualizarSorteoInput = Partial<CrearSorteoInput>;
+
+export async function actualizarSorteo(
+  id: string,
+  input: ActualizarSorteoInput,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (input.nombre !== undefined) patch.nombre = input.nombre.trim();
+  if (input.fecha !== undefined) patch.fecha = input.fecha;
+  if (input.precio !== undefined) patch.precio = input.precio;
+
+  const { error } = await supabase.from("sorteos").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function contarPagosDeSorteo(id: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("pagos")
+    .select("id", { count: "exact", head: true })
+    .eq("sorteo_id", id);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function eliminarSorteo(id: string): Promise<void> {
+  const pagos = await contarPagosDeSorteo(id);
+  if (pagos > 0) {
+    throw new Error(
+      `No se puede eliminar un sorteo con ${pagos} pago(s) registrado(s).`,
+    );
+  }
+
+  const { error } = await supabase.from("sorteos").delete().eq("id", id);
+  if (error) throw error;
+}
