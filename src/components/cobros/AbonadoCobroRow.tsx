@@ -4,7 +4,7 @@ import { Icon } from "@/components/ui/icon";
 import { Pressable, View } from "react-native";
 
 import type { EstadoCuenta, SorteoTipo } from "@/lib/database.types";
-import { formatFechaHora, formatMoney } from "@/lib/format";
+import { etiquetaMetodo, formatFechaHora, formatMoney } from "@/lib/format";
 import { colors } from "@/lib/theme";
 
 import { EstadoBadge, TipoBadges } from "../badges";
@@ -62,8 +62,8 @@ export const AbonadoCobroRow = memo(function AbonadoCobroRow({
             size={14}
             color={colors.muted}
           />
-          <AppText variant="caption" className="capitalize">
-            {row.metodo ?? (cobrado ? "sin método" : "pendiente")}
+          <AppText variant="caption">
+            {cobrado ? etiquetaMetodo(row.metodo) : "Pendiente"}
           </AppText>
         </View>
         <AppText variant="caption">{formatFechaHora(row.fecha)}</AppText>

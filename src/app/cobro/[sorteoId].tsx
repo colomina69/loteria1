@@ -11,6 +11,7 @@ import {
 } from "@/components/cobros/AbonadoCobroRow";
 import {
   AppText,
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -21,6 +22,7 @@ import {
   SectionHeader,
   Segmented,
   Sheet,
+  Stepper,
   SwitchRow,
 } from "@/components/ui";
 import { useAsync } from "@/hooks/useAsync";
@@ -43,6 +45,7 @@ import {
 } from "@/lib/derive";
 import type { MetodoPago } from "@/lib/database.types";
 import {
+  etiquetaMetodo,
   formatFechaHora,
   formatFechaLarga,
   formatMoney,
@@ -95,7 +98,7 @@ export default function CobroSorteoScreen() {
   const [incluirTodos, setIncluirTodos] = useState(false);
 
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
-  const [cantidad, setCantidad] = useState(1);
+  const [cantidad, setCantidad] = useState(0);
   const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
   const [sheetVisible, setSheetVisible] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -103,6 +106,28 @@ export default function CobroSorteoScreen() {
 
   const tipo = data ? tipoDesdeNombre(data.sorteo.nombre) : "mensual";
   const precio = Number(data?.sorteo.precio ?? 0);
+  const stockTotal = data
+    ? Number(data.sorteo.decimos_iniciales) + Number(data.sorteo.decimos_extra)
+    : 0;
+  const stockVendidos = data
+    ? data.sorteo.pagos.filter(esPagoActivo).length
+    : 0;
+  const stockDisponibles = Math.max(0, stockTotal - stockVendidos);
+  const pctStock =
+    stockTotal > 0
+      ? Math.min(100, Math.round((stockDisponibles / stockTotal) * 100))
+      : 0;
+  const metodos = useMemo(() => {
+    if (!data) return [];
+    const mapa = new Map<string, number>();
+    for (const pago of data.sorteo.pagos.filter(esPagoActivo)) {
+      const metodo = pago.metodo_pago ?? "sin método";
+      mapa.set(metodo, (mapa.get(metodo) ?? 0) + 1);
+    }
+    return Array.from(mapa.entries())
+      .map(([metodo, count]) => ({ metodo, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [data]);
 
   const baseRows = useMemo<CobroRowData[]>(() => {
     if (!data) return [];
@@ -171,10 +196,19 @@ export default function CobroSorteoScreen() {
   const yaEntregado =
     pagosSeleccionado.length > 0 &&
     pagosSeleccionado.filter(esPagoActivo).every((pago) => pago.estado === "delivered");
+  const entregadosSeleccionado = pagosSeleccionado.filter(
+    (pago) => pago.estado === "delivered",
+  ).length;
+  const puedeAnular =
+    entregadosSeleccionado === 0 &&
+    pagosSeleccionado.some((pago) => pago.estado === "paid");
+  const maxCantidad = seleccionado
+    ? seleccionado.cantidad + stockDisponibles
+    : 0;
 
   function abrirSheet(fila: CobroRowData) {
     setSeleccionadoId(fila.id);
-    setCantidad(fila.cantidad > 0 ? 1 : 0);
+    setCantidad(fila.cantidad);
     setMetodo(normalizarMetodo(fila.metodo));
     setErrorAccion(null);
     setSheetVisible(true);
@@ -308,12 +342,36 @@ export default function CobroSorteoScreen() {
                     </View>
                   </View>
 
+                  <View className="gap-1.5">
+                    <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                      <View
+                        style={{ width: `${pctStock}%` }}
+                        className="h-full rounded-full bg-emerald-500"
+                      />
+                    </View>
+                    <AppText variant="caption">
+                      {stockDisponibles} de {stockTotal} décimos disponibles
+                    </AppText>
+                  </View>
+
                   <View className="flex-row items-center gap-1.5">
                     <Icon name="information-circle-outline" size={14} color={colors.muted} />
                     <AppText variant="caption">
                       {resumen.decimos} décimos cobrados en este sorteo
                     </AppText>
                   </View>
+
+                  {metodos.length > 0 ? (
+                    <View className="flex-row flex-wrap gap-2">
+                      {metodos.map((item) => (
+                        <Badge
+                          key={item.metodo}
+                          label={`${etiquetaMetodo(item.metodo)}: ${item.count}`}
+                          tone={item.metodo === "bizum" ? "info" : "neutral"}
+                        />
+                      ))}
+                    </View>
+                  ) : null}
                 </Card>
 
                 <SearchBar
@@ -372,7 +430,7 @@ export default function CobroSorteoScreen() {
             ListFooterComponent={
               filas.length > 0 ? (
                 <AppText variant="caption" className="mt-4 text-center">
-                  Toca un abonado para cobrar su décimo. La base de datos permite 1 por sorteo.
+                  Toca un abonado para asignar sus décimos del sorteo.
                 </AppText>
               ) : undefined
             }
@@ -393,19 +451,34 @@ export default function CobroSorteoScreen() {
                   </AppText>
                 </View>
 
-                <SwitchRow
-                  label="Cobrar 1 décimo"
-                  description={"La base de datos limita a 1 décimo por abonado y sorteo · " + formatMoney(precio)}
-                  value={cantidad > 0}
-                  onValueChange={(activo) => setCantidad(activo ? 1 : 0)}
-                />
-
-                <View className="flex-row items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-                  <AppText variant="caption">Importe del cobro</AppText>
-                  <AppText className="text-2xl font-bold text-emerald-400">
-                    {formatMoney(cantidad * precio)}
+                <Card className="gap-3">
+                  <View className="flex-row items-center justify-between">
+                    <AppText variant="bodyStrong">Décimos asignados</AppText>
+                    <AppText variant="caption">Máx. {maxCantidad}</AppText>
+                  </View>
+                  <View className="items-center py-2">
+                    <Stepper
+                      value={cantidad}
+                      onChange={setCantidad}
+                      min={entregadosSeleccionado}
+                      max={maxCantidad}
+                    />
+                  </View>
+                  <View className="flex-row items-center justify-between border-t border-zinc-800 pt-3">
+                    <AppText variant="caption">Importe total</AppText>
+                    <AppText className="text-2xl font-bold text-emerald-400">
+                      {formatMoney(cantidad * precio)}
+                    </AppText>
+                  </View>
+                  <AppText variant="caption">
+                    Disponibles en el sorteo: {stockDisponibles} de {stockTotal}
                   </AppText>
-                </View>
+                  {stockDisponibles === 0 && seleccionado.cantidad === 0 ? (
+                    <AppText className="text-xs text-amber-400">
+                      Sin stock disponible. Amplía el inventario del sorteo.
+                    </AppText>
+                  ) : null}
+                </Card>
 
                 {cantidad > 0 ? (
                   <View className="gap-2">
@@ -444,7 +517,7 @@ export default function CobroSorteoScreen() {
                   />
                 ) : null}
 
-                {seleccionado.cantidad > 0 ? (
+                {puedeAnular ? (
                   <Button
                     title="Anular cobro"
                     variant="danger"

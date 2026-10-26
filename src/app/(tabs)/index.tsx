@@ -18,7 +18,12 @@ import {
 import { useAsync } from "@/hooks/useAsync";
 import { getDashboard } from "@/lib/api/dashboard";
 import type { PagoConRelaciones, SorteoResumen } from "@/lib/database.types";
-import { formatFechaHora, formatFechaLarga, formatMoney } from "@/lib/format";
+import {
+  etiquetaMetodo,
+  formatFechaHora,
+  formatFechaLarga,
+  formatMoney,
+} from "@/lib/format";
 import { colors } from "@/lib/theme";
 
 function ProximoSorteoCard({
@@ -51,11 +56,17 @@ function ProximoSorteoCard({
       </View>
 
       <View className="mt-4 flex-row items-center justify-between border-t border-emerald-500/20 pt-3">
-        <View className="flex-row items-center gap-4">
+        <View className="flex-row items-center gap-3">
           <View className="flex-row items-center gap-1.5">
             <Icon name="ticket-outline" size={15} color="#6EE7B7" />
             <AppText className="text-xs font-semibold text-emerald-100">
-              {sorteo.decimos} décimos
+              {sorteo.decimos} vendidos
+            </AppText>
+          </View>
+          <View className="flex-row items-center gap-1.5">
+            <Icon name="cube-outline" size={15} color="#6EE7B7" />
+            <AppText className="text-xs font-semibold text-emerald-100">
+              {sorteo.decimosDisponibles} disp.
             </AppText>
           </View>
           <View className="flex-row items-center gap-1.5">
@@ -101,9 +112,12 @@ function CobroReciente({
           {sorteo} · {formatFechaHora(pago.fecha_pago)}
         </AppText>
       </View>
-      <AppText className="text-sm font-bold text-zinc-100">
-        {formatMoney(precio)}
-      </AppText>
+      <View className="items-end gap-0.5">
+        <AppText className="text-sm font-bold text-zinc-100">
+          {formatMoney(precio)}
+        </AppText>
+        <AppText variant="caption">{etiquetaMetodo(pago.metodo_pago)}</AppText>
+      </View>
     </Pressable>
   );
 }

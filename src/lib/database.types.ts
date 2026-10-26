@@ -7,6 +7,8 @@ export type SorteoRow = {
   nombre: string;
   fecha: string;
   precio: number;
+  decimos_iniciales: number;
+  decimos_extra: number;
   created_at: string;
 };
 
@@ -50,6 +52,8 @@ export type SorteoConPagos = SorteoRow & {
 
 export type SorteoResumen = SorteoRow & {
   tipo: SorteoTipo;
+  decimosTotales: number;
+  decimosDisponibles: number;
   decimos: number;
   abonadosCobrados: number;
   recaudado: number;

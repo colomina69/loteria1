@@ -13,6 +13,7 @@ import {
   EmptyState,
   ErrorBlock,
   InfoRow,
+  Input,
   LoadingBlock,
   Screen,
   SectionHeader,
@@ -22,6 +23,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { mensajeError } from "@/lib/api/errors";
 import {
   actualizarSorteo,
+  ampliarStock,
   eliminarSorteo,
   getSorteo,
 } from "@/lib/api/sorteos";
@@ -33,6 +35,7 @@ import {
 } from "@/lib/derive";
 import type { EstadoCuenta, PagoRow } from "@/lib/database.types";
 import {
+  etiquetaMetodo,
   formatFechaHora,
   formatFechaLarga,
   formatMoney,
@@ -47,6 +50,8 @@ type Grupo = {
   estado: EstadoCuenta;
   cantidad: number;
   monto: number;
+  metodo: string | null;
+  fechaPago: string | null;
 };
 
 export default function SorteoDetalleScreen() {
@@ -64,6 +69,10 @@ export default function SorteoDetalleScreen() {
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  const [ampliarVisible, setAmpliarVisible] = useState(false);
+  const [ampliarCantidad, setAmpliarCantidad] = useState("");
+  const [ampliando, setAmpliando] = useState(false);
+  const [errorAmpliar, setErrorAmpliar] = useState<string | null>(null);
 
   const resumen = useMemo(() => {
     const pagos = data?.pagos ?? [];
@@ -78,6 +87,8 @@ export default function SorteoDetalleScreen() {
         estado: "pendiente" as EstadoCuenta,
         cantidad: 0,
         monto: 0,
+        metodo: null,
+        fechaPago: null,
       };
       actual.pagos.push(pago);
       grupos.set(pago.abonado_id, actual);
@@ -86,20 +97,35 @@ export default function SorteoDetalleScreen() {
     const lista = Array.from(grupos.values())
       .map((grupo) => {
         const cantidad = decimosActivos(grupo.pagos);
+        const activo = grupo.pagos.find(esPagoActivo);
         return {
           ...grupo,
           estado: estadoDePagos(grupo.pagos),
           cantidad,
           monto: cantidad * Number(data?.precio ?? 0),
+          metodo: activo?.metodo_pago ?? null,
+          fechaPago: activo?.fecha_pago ?? null,
         };
       })
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const metodos = new Map<string, { count: number; total: number }>();
+    for (const pago of activos) {
+      const metodo = pago.metodo_pago ?? "sin método";
+      const acumulado = metodos.get(metodo) ?? { count: 0, total: 0 };
+      acumulado.count += 1;
+      acumulado.total += Number(data?.precio ?? 0);
+      metodos.set(metodo, acumulado);
+    }
 
     return {
       decimos: activos.length,
       abonadosCobrados: new Set(activos.map((pago) => pago.abonado_id)).size,
       entregados: activos.filter((pago) => pago.estado === "delivered").length,
       pendientes: pagos.filter((pago) => pago.estado === "pending").length,
+      metodos: Array.from(metodos.entries())
+        .map(([metodo, stats]) => ({ metodo, ...stats }))
+        .sort((a, b) => b.count - a.count),
       grupos: lista,
     };
   }, [data]);
@@ -135,6 +161,36 @@ export default function SorteoDetalleScreen() {
       setErrorAccion(mensajeError(err));
     } finally {
       setGuardando(false);
+    }
+  }
+
+  function abrirAmpliar() {
+    setAmpliarCantidad("10");
+    setErrorAmpliar(null);
+    setAmpliarVisible(true);
+  }
+
+  async function guardarAmpliacion() {
+    if (!data) return;
+    const cantidad = /^\d+$/.test(ampliarCantidad.trim())
+      ? Number.parseInt(ampliarCantidad, 10)
+      : 0;
+
+    if (cantidad <= 0) {
+      setErrorAmpliar("Indica una cantidad mayor que cero.");
+      return;
+    }
+
+    setAmpliando(true);
+    setErrorAmpliar(null);
+    try {
+      await ampliarStock(data.id, cantidad);
+      setAmpliarVisible(false);
+      await reload();
+    } catch (err) {
+      setErrorAmpliar(mensajeError(err));
+    } finally {
+      setAmpliando(false);
     }
   }
 
@@ -174,6 +230,14 @@ export default function SorteoDetalleScreen() {
 
   const tipo = data ? tipoDesdeNombre(data.nombre) : "mensual";
   const recaudado = resumen.decimos * Number(data?.precio ?? 0);
+  const stockTotal = data
+    ? Number(data.decimos_iniciales) + Number(data.decimos_extra)
+    : 0;
+  const stockDisponibles = Math.max(0, stockTotal - resumen.decimos);
+  const porcentajeDisponible =
+    stockTotal > 0
+      ? Math.min(100, Math.round((stockDisponibles / stockTotal) * 100))
+      : 0;
 
   return (
     <Screen edges={["bottom", "left", "right"]}>
@@ -201,19 +265,37 @@ export default function SorteoDetalleScreen() {
                 <TipoBadge tipo={tipo} />
               </View>
 
-              <View className="flex-row gap-3">
+              <View className="flex-row gap-2">
+                <View className="flex-1 rounded-xl bg-zinc-950 p-3">
+                  <AppText className="text-xl font-bold text-emerald-400">
+                    {stockDisponibles}
+                  </AppText>
+                  <AppText variant="caption">disponibles</AppText>
+                </View>
                 <View className="flex-1 rounded-xl bg-zinc-950 p-3">
                   <AppText className="text-xl font-bold text-zinc-100">
                     {resumen.decimos}
                   </AppText>
-                  <AppText variant="caption">décimos vendidos</AppText>
+                  <AppText variant="caption">vendidos</AppText>
                 </View>
                 <View className="flex-1 rounded-xl bg-zinc-950 p-3">
-                  <AppText className="text-xl font-bold text-emerald-400">
+                  <AppText className="text-lg font-bold text-emerald-400">
                     {formatMoney(recaudado)}
                   </AppText>
                   <AppText variant="caption">cobrado</AppText>
                 </View>
+              </View>
+
+              <View className="gap-1.5">
+                <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                  <View
+                    style={{ width: `${porcentajeDisponible}%` }}
+                    className="h-full rounded-full bg-emerald-500"
+                  />
+                </View>
+                <AppText variant="caption">
+                  {stockDisponibles} de {stockTotal} décimos disponibles
+                </AppText>
               </View>
 
               <View className="gap-2">
@@ -222,6 +304,26 @@ export default function SorteoDetalleScreen() {
                 <InfoRow label="Décimos entregados" value={String(resumen.entregados)} />
                 <InfoRow label="Filas pendientes" value={String(resumen.pendientes)} />
               </View>
+
+              {resumen.metodos.length > 0 ? (
+                <View className="gap-2 rounded-xl bg-zinc-950 p-3">
+                  <AppText variant="label">Cobros por método</AppText>
+                  {resumen.metodos.map((item) => (
+                    <View
+                      key={item.metodo}
+                      className="flex-row items-center justify-between"
+                    >
+                      <AppText variant="caption">
+                        {etiquetaMetodo(item.metodo)}
+                      </AppText>
+                      <AppText variant="caption">
+                        {item.count} décimo{item.count === 1 ? "" : "s"} ·{" "}
+                        {formatMoney(item.total)}
+                      </AppText>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
               <View className="flex-row gap-2">
                 <Button
@@ -243,6 +345,19 @@ export default function SorteoDetalleScreen() {
                   onPress={abrirEdicion}
                 />
               </View>
+
+              {tipo !== "mensual" ? (
+                <Button
+                  title="Ampliar stock"
+                  variant="secondary"
+                  icon="add"
+                  onPress={abrirAmpliar}
+                />
+              ) : (
+                <AppText variant="caption">
+                  El stock de un sorteo mensual se fija al crearlo.
+                </AppText>
+              )}
             </Card>
 
             {error ? <ErrorBlock message={error} onRetry={reload} /> : null}
@@ -287,10 +402,7 @@ export default function SorteoDetalleScreen() {
                       </AppText>
                       <View className="flex-row items-center gap-1">
                         <AppText variant="caption">
-                          {formatFechaHora(
-                            grupo.pagos.find((pago) => esPagoActivo(pago))?.fecha_pago ??
-                              null,
-                          )}
+                          {etiquetaMetodo(grupo.metodo)}
                         </AppText>
                         <Icon
                           name="chevron-forward"
@@ -298,6 +410,16 @@ export default function SorteoDetalleScreen() {
                           color={colors.muted}
                         />
                       </View>
+                    </View>
+                    <View className="mt-1 flex-row items-center gap-1.5">
+                      <Icon
+                        name="wallet-outline"
+                        size={13}
+                        color={colors.muted}
+                      />
+                      <AppText variant="caption">
+                        {formatFechaHora(grupo.fechaPago)}
+                      </AppText>
                     </View>
                   </Pressable>
                 ))
@@ -338,6 +460,31 @@ export default function SorteoDetalleScreen() {
               icon="save-outline"
               loading={guardando}
               onPress={guardarEdicion}
+            />
+          </Sheet>
+
+          <Sheet
+            visible={ampliarVisible}
+            onClose={() => setAmpliarVisible(false)}
+            title="Ampliar stock"
+          >
+            <AppText variant="caption">
+              Stock actual: {stockTotal} décimos · Disponibles: {stockDisponibles}
+            </AppText>
+            <Input
+              label="Décimos a añadir"
+              value={ampliarCantidad}
+              onChangeText={setAmpliarCantidad}
+              placeholder="10"
+              keyboardType="number-pad"
+              autoFocus
+            />
+            {errorAmpliar ? <ErrorBlock message={errorAmpliar} /> : null}
+            <Button
+              title="Añadir décimos"
+              icon="add"
+              loading={ampliando}
+              onPress={guardarAmpliacion}
             />
           </Sheet>
         </>

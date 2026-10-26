@@ -18,6 +18,9 @@ export function SorteoFormFields({
   onFechaChange,
   precio,
   onPrecioChange,
+  incluirStock = false,
+  decimosIniciales = "0",
+  onDecimosInicialesChange,
 }: {
   nombre: string;
   onNombreChange: (value: string) => void;
@@ -25,6 +28,9 @@ export function SorteoFormFields({
   onFechaChange: (value: string) => void;
   precio: string;
   onPrecioChange: (value: string) => void;
+  incluirStock?: boolean;
+  decimosIniciales?: string;
+  onDecimosInicialesChange?: (value: string) => void;
 }) {
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
   const tipo = tipoDesdeNombre(nombre);
@@ -79,6 +85,17 @@ export function SorteoFormFields({
         placeholder="7,00"
         keyboardType="decimal-pad"
       />
+
+      {incluirStock && onDecimosInicialesChange ? (
+        <Input
+          label="Décimos consignados"
+          value={decimosIniciales}
+          onChangeText={onDecimosInicialesChange}
+          placeholder="0"
+          keyboardType="number-pad"
+          hint="Inventario inicial. En sorteos mensuales debe ser mayor que 0; los extraordinarios se pueden ampliar después."
+        />
+      ) : null}
     </View>
   );
 }

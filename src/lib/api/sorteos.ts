@@ -14,18 +14,24 @@ type SorteoRaw = SorteoRow & {
 };
 
 const SORTEO_RESUMEN_SELECT =
-  "id,nombre,fecha,precio,created_at,pagos(estado,abonado_id,fecha_pago)";
+  "id,nombre,fecha,precio,decimos_iniciales,decimos_extra,created_at,pagos(estado,abonado_id,fecha_pago)";
 
 function resumirSorteo(sorteo: SorteoRaw): SorteoResumen {
   const pagos = sorteo.pagos ?? [];
   const activos = pagos.filter(esPagoActivo);
   const abonados = new Set(activos.map((pago) => pago.abonado_id));
   const { pagos: _pagos, ...base } = sorteo;
+  const decimosTotales =
+    Number(base.decimos_iniciales) + Number(base.decimos_extra);
 
   return {
     ...base,
     precio: Number(base.precio),
+    decimos_iniciales: Number(base.decimos_iniciales),
+    decimos_extra: Number(base.decimos_extra),
     tipo: tipoDesdeNombre(base.nombre),
+    decimosTotales,
+    decimosDisponibles: Math.max(0, decimosTotales - activos.length),
     decimos: activos.length,
     abonadosCobrados: abonados.size,
     recaudado: activos.length * Number(base.precio),
@@ -48,7 +54,7 @@ export async function listSorteos(): Promise<SorteoResumen[]> {
 export async function getSorteo(id: string): Promise<SorteoConPagos> {
   const { data, error } = await supabase
     .from("sorteos")
-    .select("id,nombre,fecha,precio,created_at,pagos(*,abonado:abonados(id,nombre,activo))")
+    .select("id,nombre,fecha,precio,decimos_iniciales,decimos_extra,created_at,pagos(*,abonado:abonados(id,nombre,activo))")
     .eq("id", id)
     .maybeSingle()
     .returns<SorteoConPagos>();
@@ -62,6 +68,7 @@ export type CrearSorteoInput = {
   nombre: string;
   fecha: string;
   precio: number;
+  decimosIniciales: number;
 };
 
 export async function crearSorteo(input: CrearSorteoInput): Promise<SorteoRow> {
@@ -71,8 +78,10 @@ export async function crearSorteo(input: CrearSorteoInput): Promise<SorteoRow> {
       nombre: input.nombre.trim(),
       fecha: input.fecha,
       precio: input.precio,
+      decimos_iniciales: Math.max(0, Math.floor(input.decimosIniciales)),
+      decimos_extra: 0,
     })
-    .select("id,nombre,fecha,precio,created_at")
+    .select("id,nombre,fecha,precio,decimos_iniciales,decimos_extra,created_at")
     .single()
     .returns<SorteoRow>();
 
@@ -80,7 +89,11 @@ export async function crearSorteo(input: CrearSorteoInput): Promise<SorteoRow> {
   return data;
 }
 
-export type ActualizarSorteoInput = Partial<CrearSorteoInput>;
+export type ActualizarSorteoInput = {
+  nombre?: string;
+  fecha?: string;
+  precio?: number;
+};
 
 export async function actualizarSorteo(
   id: string,
@@ -92,6 +105,22 @@ export async function actualizarSorteo(
   if (input.precio !== undefined) patch.precio = input.precio;
 
   const { error } = await supabase.from("sorteos").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function ampliarStock(
+  id: string,
+  cantidad: number,
+): Promise<void> {
+  if (!Number.isInteger(cantidad) || cantidad <= 0) {
+    throw new Error("La ampliación debe ser mayor que cero.");
+  }
+
+  const { error } = await supabase.rpc("ampliar_stock", {
+    p_sorteo_id: id,
+    p_cantidad: cantidad,
+  });
+
   if (error) throw error;
 }
 

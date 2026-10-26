@@ -34,7 +34,12 @@ import {
   tiposDeAbonado,
 } from "@/lib/derive";
 import type { AbonadoConHistorial, EstadoCuenta } from "@/lib/database.types";
-import { formatFechaHora, formatFechaCorta, formatMoney } from "@/lib/format";
+import {
+  etiquetaMetodo,
+  formatFechaHora,
+  formatFechaCorta,
+  formatMoney,
+} from "@/lib/format";
 import { colors } from "@/lib/theme";
 
 type GrupoHistorial = {
@@ -266,8 +271,8 @@ export default function AbonadoDetalleScreen() {
                           size={13}
                           color={colors.muted}
                         />
-                        <AppText variant="caption" className="capitalize">
-                          {grupo.metodo ?? "sin método"}
+                        <AppText variant="caption">
+                          {etiquetaMetodo(grupo.metodo)}
                         </AppText>
                       </View>
                       <AppText variant="caption">

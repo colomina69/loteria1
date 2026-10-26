@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { crearSorteo } from "@/lib/api/sorteos";
 import { mensajeError } from "@/lib/api/errors";
+import { tipoDesdeNombre } from "@/lib/derive";
 import { hoyISO, parseDecimal } from "@/lib/format";
 
 export default function NuevoSorteoScreen() {
@@ -24,16 +25,30 @@ export default function NuevoSorteoScreen() {
   const [nombre, setNombre] = useState("");
   const [fecha, setFecha] = useState(hoyISO());
   const [precio, setPrecio] = useState("7,00");
+  const [decimosIniciales, setDecimosIniciales] = useState("0");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const tipo = tipoDesdeNombre(nombre);
   const precioNumero = parseDecimal(precio);
+  const stockNumero = /^\d+$/.test(decimosIniciales.trim())
+    ? Number.parseInt(decimosIniciales, 10)
+    : null;
+  const stockValido = stockNumero !== null && stockNumero >= 0;
   const valido =
-    nombre.trim().length > 0 && precioNumero !== null && precioNumero > 0;
+    nombre.trim().length > 0 &&
+    precioNumero !== null &&
+    precioNumero > 0 &&
+    stockValido &&
+    (tipo !== "mensual" || (stockNumero ?? 0) > 0);
 
   async function guardar() {
-    if (!valido || precioNumero === null) {
-      setError("Indica un nombre y un precio mayor que cero.");
+    if (!valido || precioNumero === null || stockNumero === null) {
+      setError(
+        tipo === "mensual"
+          ? "Indica nombre, precio y un stock inicial mayor que cero."
+          : "Indica un nombre, un precio y un stock inicial válido.",
+      );
       return;
     }
 
@@ -41,7 +56,12 @@ export default function NuevoSorteoScreen() {
     setError(null);
 
     try {
-      await crearSorteo({ nombre, fecha, precio: precioNumero });
+      await crearSorteo({
+        nombre,
+        fecha,
+        precio: precioNumero,
+        decimosIniciales: stockNumero,
+      });
       router.back();
     } catch (err) {
       setError(mensajeError(err));
@@ -68,17 +88,21 @@ export default function NuevoSorteoScreen() {
               onFechaChange={setFecha}
               precio={precio}
               onPrecioChange={setPrecio}
+              incluirStock
+              decimosIniciales={decimosIniciales}
+              onDecimosInicialesChange={setDecimosIniciales}
             />
           </Card>
 
           {error ? <ErrorBlock message={error} /> : null}
 
           <View className="gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-            <AppText variant="bodyStrong">Cómo se calcula el tipo</AppText>
+            <AppText variant="bodyStrong">Inventario y tipo</AppText>
             <AppText variant="caption" className="leading-5">
               Si el nombre contiene «Navidad», «Niño» o «Extraordinario», el sorteo se
-              clasifica así. En caso contrario será mensual. El stock no se guarda en
-              la base de datos: se muestran los décimos cobrados y el importe.
+              clasifica así. En caso contrario será mensual. Los sorteos mensuales
+              necesitan stock inicial; los extraordinarios también se pueden ampliar
+              después.
             </AppText>
           </View>
 

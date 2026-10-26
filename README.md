@@ -37,23 +37,35 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 Solo se debe usar la **publishable/anon key**. Las variables `EXPO_PUBLIC_*` quedan
 incrustadas en el bundle, así que nunca incluyas una secret key.
 
+## Migración obligatoria
+
+Antes de usar la app ejecuta `supabase/migrations/001_stock.sql` en **Supabase → SQL Editor**. La migración:
+
+- añade `decimos_iniciales` y `decimos_extra` a `sorteos`;
+- elimina la restricción que impedía varios décimos por abonado y sorteo;
+- crea las funciones atómicas `registrar_cobro` y `ampliar_stock`;
+- rellena el stock histórico (décimos ya vendidos, sin disponibles).
+
+Sin esta migración las pantallas de sorteos y cobros fallarán.
+
 ## Base de datos
 
-La app usa el cliente oficial `@supabase/postgrest-js` para consultas REST (sin auth ni realtime) y el esquema existente **sin migraciones**:
+La app usa el cliente oficial `@supabase/postgrest-js` para consultas REST (sin auth ni realtime):
 
 | Tabla | Columnas usadas |
 | --- | --- |
-| `sorteos` | `id`, `nombre`, `fecha`, `precio`, `created_at` |
+| `sorteos` | `id`, `nombre`, `fecha`, `precio`, `decimos_iniciales`, `decimos_extra`, `created_at` |
 | `abonados` | `id`, `nombre`, `activo`, `created_at` |
 | `pagos` | `id`, `abonado_id`, `sorteo_id`, `estado`, `fecha_pago`, `metodo_pago`, `created_at` |
 
-Reglas derivadas del esquema actual:
+Reglas:
 
 - **Tipo de sorteo:** se deduce del nombre (`Navidad`, `Niño` o `Extraordinario`; si no, mensual).
 - **Suscripciones:** «Mensual» se asigna a todo abonado activo; «Navidad» y «Niño» se deducen del historial de pagos.
-- **Stock:** no existe en el esquema; se muestran décimos vendidos y recaudado.
+- **Stock:** disponible = `decimos_iniciales + decimos_extra - décimos vendidos`. Se muestra en las tarjetas, el detalle y la hoja de cobro.
+- **Varios décimos:** cada fila de `pagos` es un décimo del abonado en el sorteo. El RPC valida y ajusta el stock de forma atómica.
+- **Ampliación:** los sorteos no mensuales tienen un botón «Ampliar stock»; los mensuales fijan el inventario al crearse.
 - **Teléfono:** no existe en el esquema; no se solicita.
-- **Décimos por abonado/sorteo:** la restricción única `payments_subscriber_id_draw_id_key` permite **1 solo décimo** por abonado y sorteo.
 - **Monto:** se calcula multiplicando los décimos cobrados por `sorteos.precio`.
 
 ## Estados de pago
@@ -83,6 +95,7 @@ src/components        UI y tarjetas
 src/lib/api           Consultas Supabase
 src/lib/derive.ts     Tipo, suscripciones y estados derivados
 src/hooks/useAsync.ts Carga, recarga y refresco al enfocar
+supabase/migrations   Migración de stock y varios décimos
 ```
 
 Los iconos son SVG locales con `react-native-svg`, sin carga de fuentes de iconos.

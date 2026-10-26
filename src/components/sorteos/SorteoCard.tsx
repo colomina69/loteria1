@@ -39,6 +39,14 @@ export const SorteoCard = memo(function SorteoCard({
   sorteo: SorteoResumen;
   onPress: () => void;
 }) {
+  const porcentajeDisponible =
+    sorteo.decimosTotales > 0
+      ? Math.min(
+          100,
+          Math.round((sorteo.decimosDisponibles / sorteo.decimosTotales) * 100),
+        )
+      : 0;
+
   return (
     <Pressable
       onPress={onPress}
@@ -55,7 +63,7 @@ export const SorteoCard = memo(function SorteoCard({
       </View>
 
       <View className="mt-4 flex-row flex-wrap gap-x-5 gap-y-3">
-        <Metric icon="ticket-outline" value={String(sorteo.decimos)} label="décimos" />
+        <Metric icon="ticket-outline" value={String(sorteo.decimos)} label="vendidos" />
         <Metric
           icon="people-outline"
           value={String(sorteo.abonadosCobrados)}
@@ -66,6 +74,27 @@ export const SorteoCard = memo(function SorteoCard({
           value={formatMoney(sorteo.recaudado)}
           label="cobrado"
         />
+      </View>
+
+      <View className="mt-4 gap-2">
+        <View className="flex-row items-center justify-between">
+          <AppText variant="caption">Disponibles</AppText>
+          <AppText
+            className={
+              sorteo.decimosDisponibles > 0
+                ? "text-xs font-semibold text-emerald-300"
+                : "text-xs font-semibold text-red-300"
+            }
+          >
+            {sorteo.decimosDisponibles} de {sorteo.decimosTotales}
+          </AppText>
+        </View>
+        <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+          <View
+            style={{ width: `${porcentajeDisponible}%` }}
+            className="h-full rounded-full bg-emerald-500"
+          />
+        </View>
       </View>
 
       <View className="mt-3 flex-row items-center justify-between border-t border-zinc-800 pt-3">
