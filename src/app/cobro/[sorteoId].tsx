@@ -252,7 +252,7 @@ export default function CobroSorteoScreen() {
     entregadosSeleccionado === 0 &&
     pagosSeleccionado.some((pago) => pago.estado === "paid");
   const maxCantidad = seleccionado
-    ? seleccionado.cantidad + stockDisponibles
+    ? seleccionado.cantidad + (tipo === "mensual" ? 99 : stockDisponibles)
     : 0;
 
   function abrirSheet(fila: CobroRowData) {
@@ -453,17 +453,31 @@ export default function CobroSorteoScreen() {
                     </View>
                   </View>
 
-                  <View className="gap-1.5">
-                    <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
-                      <View
-                        style={{ width: `${pctStock}%` }}
-                        className="h-full rounded-full bg-emerald-500"
+                  {tipo === "mensual" ? (
+                    <View className="flex-row items-center gap-1.5">
+                      <Icon
+                        name="information-circle-outline"
+                        size={14}
+                        color={colors.brand}
                       />
+                      <AppText variant="caption">
+                        Sorteo mensual: el stock se amplía automáticamente al
+                        cobrar.
+                      </AppText>
                     </View>
-                    <AppText variant="caption">
-                      {stockDisponibles} de {stockTotal} décimos disponibles
-                    </AppText>
-                  </View>
+                  ) : (
+                    <View className="gap-1.5">
+                      <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                        <View
+                          style={{ width: `${pctStock}%` }}
+                          className="h-full rounded-full bg-emerald-500"
+                        />
+                      </View>
+                      <AppText variant="caption">
+                        {stockDisponibles} de {stockTotal} décimos disponibles
+                      </AppText>
+                    </View>
+                  )}
 
                   <View className="flex-row items-center gap-1.5">
                     <Icon name="information-circle-outline" size={14} color={colors.muted} />
@@ -572,7 +586,9 @@ export default function CobroSorteoScreen() {
                 <Card className="gap-3">
                   <View className="flex-row items-center justify-between">
                     <AppText variant="bodyStrong">Décimos asignados</AppText>
-                    <AppText variant="caption">Máx. {maxCantidad}</AppText>
+                    <AppText variant="caption">
+                      {tipo === "mensual" ? "Sin límite" : `Máx. ${maxCantidad}`}
+                    </AppText>
                   </View>
                   <View className="items-center py-2">
                     <Stepper
@@ -588,10 +604,19 @@ export default function CobroSorteoScreen() {
                       {formatMoney(cantidad * precio)}
                     </AppText>
                   </View>
-                  <AppText variant="caption">
-                    Disponibles en el sorteo: {stockDisponibles} de {stockTotal}
-                  </AppText>
-                  {stockDisponibles === 0 && seleccionado.cantidad === 0 ? (
+                  {tipo === "mensual" ? (
+                    <AppText variant="caption">
+                      Sorteo mensual: el stock se amplía automáticamente al
+                      guardar.
+                    </AppText>
+                  ) : (
+                    <AppText variant="caption">
+                      Disponibles en el sorteo: {stockDisponibles} de {stockTotal}
+                    </AppText>
+                  )}
+                  {tipo !== "mensual" &&
+                  stockDisponibles === 0 &&
+                  seleccionado.cantidad === 0 ? (
                     <AppText className="text-xs text-amber-400">
                       Sin stock disponible. Amplía el inventario del sorteo.
                     </AppText>

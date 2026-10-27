@@ -45,6 +45,7 @@ Antes de usar la app ejecuta en orden los archivos de `supabase/migrations/` en 
 - `002_cambio.sql`: añade `pagos.nombre_cambio` y actualiza `registrar_cobro` para el método «Cambio».
 - `003_modalidad.sql`: añade `abonados.modalidad` (`mensual` o `extraordinario`) con valor por defecto `mensual`.
 - `004_standalone_cambio.sql`: permite `pagos.abonado_id` nulo y añade `registrar_cambio_suelto` para cambios de décimo sin abonado.
+- `005_monthly_auto_stock.sql`: amplía automáticamente el stock de los sorteos mensuales al cobrar.
 
 Sin estas migraciones las pantallas de sorteos, abonados y cobros fallarán.
 
@@ -63,9 +64,9 @@ Reglas:
 - **Tipo de sorteo:** se deduce del nombre (`Navidad`, `Niño` o `Extraordinario`; si no, mensual).
 - **Modalidad:** al crear o editar un abonado se elige «Mensual» (participa en todos los sorteos) o «Solo extraordinarios» (solo Navidad, Niño y extraordinarios). Se guarda en `abonados.modalidad`.
 - **Elegibilidad:** en la pantalla de cobro aparecen siempre todos los abonados activos de la modalidad correspondiente; ya no hay que activar «Incluir todos».
-- **Stock:** disponible = `decimos_iniciales + decimos_extra - décimos vendidos - cambios sin abonado`. Se muestra en las tarjetas, el detalle y la hoja de cobro.
+- **Stock:** disponible = `decimos_iniciales + decimos_extra - décimos vendidos - cambios sin abonado`. En los sorteos mensuales el stock se amplía automáticamente al cobrar (no hay límite); en los extraordinarios sí se respeta el inventario.
 - **Varios décimos:** cada fila de `pagos` es un décimo del abonado en el sorteo. El RPC valida y ajusta el stock de forma atómica.
-- **Ampliación:** los sorteos no mensuales tienen un botón «Ampliar stock»; los mensuales fijan el inventario al crearse.
+- **Ampliación:** los sorteos no mensuales tienen un botón «Ampliar stock»; los mensuales amplían el stock automáticamente al cobrar.
 - **Métodos de pago:** efectivo, Bizum, tarjeta, transferencia y **Cambio** (solo Navidad/Niño). El cambio exige el nombre del décimo o persona y se guarda en `pagos.nombre_cambio`.
 - **Cambios sin abonado:** en sorteos extraordinarios se puede registrar un décimo cambiado por otro de otra entidad. Se guarda en `pagos` con `abonado_id = null`, descuenta stock y no aparece en el historial de ningún abonado.
 - **Teléfono:** no existe en el esquema; no se solicita.

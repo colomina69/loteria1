@@ -320,12 +320,21 @@ export default function SorteoDetalleScreen() {
               </View>
 
               <View className="flex-row gap-2">
-                <View className="flex-1 rounded-xl bg-zinc-950 p-3">
-                  <AppText className="text-xl font-bold text-emerald-400">
-                    {stockDisponibles}
-                  </AppText>
-                  <AppText variant="caption">disponibles</AppText>
-                </View>
+                {tipo === "mensual" ? (
+                  <View className="flex-1 rounded-xl bg-zinc-950 p-3">
+                    <AppText className="text-xl font-bold text-emerald-400">
+                      {resumen.abonadosCobrados}
+                    </AppText>
+                    <AppText variant="caption">abonados</AppText>
+                  </View>
+                ) : (
+                  <View className="flex-1 rounded-xl bg-zinc-950 p-3">
+                    <AppText className="text-xl font-bold text-emerald-400">
+                      {stockDisponibles}
+                    </AppText>
+                    <AppText variant="caption">disponibles</AppText>
+                  </View>
+                )}
                 <View className="flex-1 rounded-xl bg-zinc-950 p-3">
                   <AppText className="text-xl font-bold text-zinc-100">
                     {resumen.decimos}
@@ -359,17 +368,30 @@ export default function SorteoDetalleScreen() {
                 </View>
               ) : null}
 
-              <View className="gap-1.5">
-                <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
-                  <View
-                    style={{ width: `${porcentajeDisponible}%` }}
-                    className="h-full rounded-full bg-emerald-500"
+              {tipo === "mensual" ? (
+                <View className="flex-row items-center gap-1.5">
+                  <Icon
+                    name="information-circle-outline"
+                    size={14}
+                    color={colors.brand}
                   />
+                  <AppText variant="caption">
+                    Sorteo mensual: el stock se amplía automáticamente al cobrar.
+                  </AppText>
                 </View>
-                <AppText variant="caption">
-                  {stockDisponibles} de {stockTotal} décimos disponibles
-                </AppText>
-              </View>
+              ) : (
+                <View className="gap-1.5">
+                  <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                    <View
+                      style={{ width: `${porcentajeDisponible}%` }}
+                      className="h-full rounded-full bg-emerald-500"
+                    />
+                  </View>
+                  <AppText variant="caption">
+                    {stockDisponibles} de {stockTotal} décimos disponibles
+                  </AppText>
+                </View>
+              )}
 
               <View className="gap-2">
                 <InfoRow label="Precio por décimo" value={formatMoney(Number(data.precio))} />
@@ -433,7 +455,8 @@ export default function SorteoDetalleScreen() {
                 />
               ) : (
                 <AppText variant="caption">
-                  El stock de un sorteo mensual se fija al crearlo.
+                  El stock de un sorteo mensual se amplía automáticamente al
+                  cobrar.
                 </AppText>
               )}
             </Card>

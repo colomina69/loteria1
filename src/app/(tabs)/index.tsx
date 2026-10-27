@@ -63,12 +63,14 @@ function ProximoSorteoCard({
               {sorteo.decimos} vendidos
             </AppText>
           </View>
-          <View className="flex-row items-center gap-1.5">
-            <Icon name="cube-outline" size={15} color="#6EE7B7" />
-            <AppText className="text-xs font-semibold text-emerald-100">
-              {sorteo.decimosDisponibles} disp.
-            </AppText>
-          </View>
+          {sorteo.tipo !== "mensual" ? (
+            <View className="flex-row items-center gap-1.5">
+              <Icon name="cube-outline" size={15} color="#6EE7B7" />
+              <AppText className="text-xs font-semibold text-emerald-100">
+                {sorteo.decimosDisponibles} disp.
+              </AppText>
+            </View>
+          ) : null}
           <View className="flex-row items-center gap-1.5">
             <Icon name="cash-outline" size={15} color="#6EE7B7" />
             <AppText className="text-xs font-semibold text-emerald-100">
