@@ -2,7 +2,7 @@ import type { AbonadoConHistorial, AbonadoRow } from "../database.types";
 import { supabase } from "../supabase";
 
 const ABONADO_SELECT =
-  "id,nombre,activo,created_at,pagos(id,abonado_id,sorteo_id,estado,fecha_pago,created_at,metodo_pago,sorteo:sorteos(id,nombre,fecha,precio))";
+  "id,nombre,activo,created_at,pagos(id,abonado_id,sorteo_id,estado,fecha_pago,created_at,metodo_pago,nombre_cambio,sorteo:sorteos(id,nombre,fecha,precio))";
 
 function normalizarAbonado(abonado: AbonadoConHistorial): AbonadoConHistorial {
   return {

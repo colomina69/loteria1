@@ -51,6 +51,7 @@ type GrupoHistorial = {
   monto: number;
   fechaPago: string | null;
   metodo: string | null;
+  nombreCambio: string | null;
 };
 
 function construirHistorial(
@@ -70,6 +71,7 @@ function construirHistorial(
       monto: 0,
       fechaPago: null,
       metodo: null,
+      nombreCambio: null,
     };
 
     const pagosDelSorteo = abonado.pagos.filter(
@@ -85,6 +87,7 @@ function construirHistorial(
       monto: cantidad * Number(pago.sorteo.precio),
       fechaPago: activo?.fecha_pago ?? null,
       metodo: activo?.metodo_pago ?? null,
+      nombreCambio: activo?.nombre_cambio ?? null,
     });
   }
 
@@ -272,7 +275,7 @@ export default function AbonadoDetalleScreen() {
                           color={colors.muted}
                         />
                         <AppText variant="caption">
-                          {etiquetaMetodo(grupo.metodo)}
+                          {etiquetaMetodo(grupo.metodo, grupo.nombreCambio)}
                         </AppText>
                       </View>
                       <AppText variant="caption">

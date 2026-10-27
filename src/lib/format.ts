@@ -88,9 +88,16 @@ export function anioDeFecha(fecha: string): number {
   return Number(fecha.slice(0, 4));
 }
 
-export function etiquetaMetodo(metodo: string | null | undefined): string {
+export function etiquetaMetodo(
+  metodo: string | null | undefined,
+  nombreCambio?: string | null,
+): string {
   if (!metodo) return "Sin método";
-  return metodo.charAt(0).toUpperCase() + metodo.slice(1);
+  const etiqueta = metodo.charAt(0).toUpperCase() + metodo.slice(1);
+  if (metodo === "cambio" && nombreCambio) {
+    return `${etiqueta} · ${nombreCambio}`;
+  }
+  return etiqueta;
 }
 
 export function parseDecimal(value: string): number | null {

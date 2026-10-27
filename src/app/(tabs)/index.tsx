@@ -116,7 +116,7 @@ function CobroReciente({
         <AppText className="text-sm font-bold text-zinc-100">
           {formatMoney(precio)}
         </AppText>
-        <AppText variant="caption">{etiquetaMetodo(pago.metodo_pago)}</AppText>
+        <AppText variant="caption">{etiquetaMetodo(pago.metodo_pago, pago.nombre_cambio)}</AppText>
       </View>
     </Pressable>
   );

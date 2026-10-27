@@ -16,6 +16,7 @@ import {
   Card,
   EmptyState,
   ErrorBlock,
+  Input,
   LoadingBlock,
   Screen,
   SearchBar,
@@ -72,6 +73,7 @@ function normalizarMetodo(metodo: string | null): MetodoPago {
     metodo === "bizum" ||
     metodo === "tarjeta" ||
     metodo === "transferencia" ||
+    metodo === "cambio" ||
     metodo === "efectivo"
   ) {
     return metodo;
@@ -100,11 +102,16 @@ export default function CobroSorteoScreen() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [cantidad, setCantidad] = useState(0);
   const [metodo, setMetodo] = useState<MetodoPago>("efectivo");
+  const [nombreCambio, setNombreCambio] = useState("");
   const [sheetVisible, setSheetVisible] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
   const tipo = data ? tipoDesdeNombre(data.sorteo.nombre) : "mensual";
+  const metodosDisponibles: { value: MetodoPago; label: string }[] =
+    tipo === "navidad" || tipo === "nino"
+      ? [...METODOS, { value: "cambio", label: "Cambio" }]
+      : METODOS;
   const precio = Number(data?.sorteo.precio ?? 0);
   const stockTotal = data
     ? Number(data.sorteo.decimos_iniciales) + Number(data.sorteo.decimos_extra)
@@ -148,6 +155,7 @@ export default function CobroSorteoScreen() {
           cantidad: decimos,
           monto: decimos * precio,
           metodo: activo?.metodo_pago ?? null,
+          nombreCambio: activo?.nombre_cambio ?? null,
           fecha: activo?.fecha_pago ?? null,
         };
       });
@@ -210,6 +218,7 @@ export default function CobroSorteoScreen() {
     setSeleccionadoId(fila.id);
     setCantidad(fila.cantidad);
     setMetodo(normalizarMetodo(fila.metodo));
+    setNombreCambio(fila.nombreCambio ?? "");
     setErrorAccion(null);
     setSheetVisible(true);
   }
@@ -218,11 +227,18 @@ export default function CobroSorteoScreen() {
     if (guardando) return;
     setSheetVisible(false);
     setSeleccionadoId(null);
+    setNombreCambio("");
     setErrorAccion(null);
   }
 
   async function guardarCobro() {
     if (!data || !seleccionadoId) return;
+
+    if (cantidad > 0 && metodo === "cambio" && nombreCambio.trim().length === 0) {
+      setErrorAccion("Indica el nombre del décimo o persona del cambio.");
+      return;
+    }
+
     setGuardando(true);
     setErrorAccion(null);
 
@@ -232,9 +248,11 @@ export default function CobroSorteoScreen() {
         sorteoId: data.sorteo.id,
         cantidad,
         metodoPago: metodo,
+        nombreCambio: metodo === "cambio" ? nombreCambio.trim() : null,
       });
       setSheetVisible(false);
       setSeleccionadoId(null);
+      setNombreCambio("");
       await reload();
     } catch (err) {
       setErrorAccion(mensajeError(err));
@@ -367,7 +385,13 @@ export default function CobroSorteoScreen() {
                         <Badge
                           key={item.metodo}
                           label={`${etiquetaMetodo(item.metodo)}: ${item.count}`}
-                          tone={item.metodo === "bizum" ? "info" : "neutral"}
+                          tone={
+                            item.metodo === "bizum"
+                              ? "info"
+                              : item.metodo === "cambio"
+                                ? "warning"
+                                : "neutral"
+                          }
                         />
                       ))}
                     </View>
@@ -481,9 +505,23 @@ export default function CobroSorteoScreen() {
                 </Card>
 
                 {cantidad > 0 ? (
-                  <View className="gap-2">
+                  <View className="gap-3">
                     <AppText variant="label">Método de pago</AppText>
-                    <Segmented options={METODOS} value={metodo} onChange={setMetodo} />
+                    <Segmented
+                      options={metodosDisponibles}
+                      value={metodo}
+                      onChange={setMetodo}
+                    />
+                    {metodo === "cambio" ? (
+                      <Input
+                        label="Nombre del décimo o persona"
+                        value={nombreCambio}
+                        onChangeText={setNombreCambio}
+                        placeholder="Ej. Juan / décimo 12345"
+                        hint="Indica con quién o qué décimo has hecho el cambio."
+                        autoCapitalize="words"
+                      />
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -492,8 +530,12 @@ export default function CobroSorteoScreen() {
                     <AppText variant="caption">
                       Cobrado: {formatFechaHora(seleccionado.fecha)}
                     </AppText>
-                    <AppText variant="caption" className="capitalize">
-                      Método: {seleccionado.metodo ?? "sin método"}
+                    <AppText variant="caption">
+                      Método:{" "}
+                      {etiquetaMetodo(
+                        seleccionado.metodo,
+                        seleccionado.nombreCambio,
+                      )}
                     </AppText>
                   </View>
                 ) : null}

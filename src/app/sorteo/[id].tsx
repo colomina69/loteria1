@@ -51,6 +51,7 @@ type Grupo = {
   cantidad: number;
   monto: number;
   metodo: string | null;
+  nombreCambio: string | null;
   fechaPago: string | null;
 };
 
@@ -88,6 +89,7 @@ export default function SorteoDetalleScreen() {
         cantidad: 0,
         monto: 0,
         metodo: null,
+        nombreCambio: null,
         fechaPago: null,
       };
       actual.pagos.push(pago);
@@ -104,6 +106,7 @@ export default function SorteoDetalleScreen() {
           cantidad,
           monto: cantidad * Number(data?.precio ?? 0),
           metodo: activo?.metodo_pago ?? null,
+          nombreCambio: activo?.nombre_cambio ?? null,
           fechaPago: activo?.fecha_pago ?? null,
         };
       })
@@ -402,7 +405,7 @@ export default function SorteoDetalleScreen() {
                       </AppText>
                       <View className="flex-row items-center gap-1">
                         <AppText variant="caption">
-                          {etiquetaMetodo(grupo.metodo)}
+                          {etiquetaMetodo(grupo.metodo, grupo.nombreCambio)}
                         </AppText>
                         <Icon
                           name="chevron-forward"

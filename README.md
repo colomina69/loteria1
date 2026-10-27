@@ -39,14 +39,12 @@ incrustadas en el bundle, así que nunca incluyas una secret key.
 
 ## Migración obligatoria
 
-Antes de usar la app ejecuta `supabase/migrations/001_stock.sql` en **Supabase → SQL Editor**. La migración:
+Antes de usar la app ejecuta en orden los archivos de `supabase/migrations/` en **Supabase → SQL Editor**:
 
-- añade `decimos_iniciales` y `decimos_extra` a `sorteos`;
-- elimina la restricción que impedía varios décimos por abonado y sorteo;
-- crea las funciones atómicas `registrar_cobro` y `ampliar_stock`;
-- rellena el stock histórico (décimos ya vendidos, sin disponibles).
+- `001_stock.sql`: añade `decimos_iniciales` y `decimos_extra` a `sorteos`, elimina la restricción que impedía varios décimos por abonado/sorteo, crea `registrar_cobro` y `ampliar_stock`, y rellena el stock histórico.
+- `002_cambio.sql`: añade `pagos.nombre_cambio` y actualiza `registrar_cobro` para el método «Cambio».
 
-Sin esta migración las pantallas de sorteos y cobros fallarán.
+Sin estas migraciones las pantallas de sorteos y cobros fallarán.
 
 ## Base de datos
 
@@ -56,7 +54,7 @@ La app usa el cliente oficial `@supabase/postgrest-js` para consultas REST (sin 
 | --- | --- |
 | `sorteos` | `id`, `nombre`, `fecha`, `precio`, `decimos_iniciales`, `decimos_extra`, `created_at` |
 | `abonados` | `id`, `nombre`, `activo`, `created_at` |
-| `pagos` | `id`, `abonado_id`, `sorteo_id`, `estado`, `fecha_pago`, `metodo_pago`, `created_at` |
+| `pagos` | `id`, `abonado_id`, `sorteo_id`, `estado`, `fecha_pago`, `metodo_pago`, `nombre_cambio`, `created_at` |
 
 Reglas:
 
@@ -65,6 +63,7 @@ Reglas:
 - **Stock:** disponible = `decimos_iniciales + decimos_extra - décimos vendidos`. Se muestra en las tarjetas, el detalle y la hoja de cobro.
 - **Varios décimos:** cada fila de `pagos` es un décimo del abonado en el sorteo. El RPC valida y ajusta el stock de forma atómica.
 - **Ampliación:** los sorteos no mensuales tienen un botón «Ampliar stock»; los mensuales fijan el inventario al crearse.
+- **Métodos de pago:** efectivo, Bizum, tarjeta, transferencia y **Cambio** (solo Navidad/Niño). El cambio exige el nombre del décimo o persona y se guarda en `pagos.nombre_cambio`.
 - **Teléfono:** no existe en el esquema; no se solicita.
 - **Monto:** se calcula multiplicando los décimos cobrados por `sorteos.precio`.
 

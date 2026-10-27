@@ -18,6 +18,7 @@ export type CobroRowData = {
   cantidad: number;
   monto: number;
   metodo: string | null;
+  nombreCambio: string | null;
   fecha: string | null;
 };
 
@@ -62,8 +63,13 @@ export const AbonadoCobroRow = memo(function AbonadoCobroRow({
             size={14}
             color={colors.muted}
           />
-          <AppText variant="caption">
-            {cobrado ? etiquetaMetodo(row.metodo) : "Pendiente"}
+          <AppText
+            variant="caption"
+            className={row.metodo === "cambio" ? "text-amber-300" : undefined}
+          >
+            {cobrado
+              ? etiquetaMetodo(row.metodo, row.nombreCambio)
+              : "Pendiente"}
           </AppText>
         </View>
         <AppText variant="caption">{formatFechaHora(row.fecha)}</AppText>

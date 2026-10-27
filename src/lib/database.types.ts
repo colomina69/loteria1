@@ -27,6 +27,7 @@ export type PagoRow = {
   fecha_pago: string | null;
   created_at: string;
   metodo_pago: string | null;
+  nombre_cambio: string | null;
 };
 
 export type AbonadoRef = Pick<AbonadoRow, "id" | "nombre" | "activo">;
@@ -63,4 +64,9 @@ export type SorteoResumen = SorteoRow & {
 
 export type EstadoCuenta = "pendiente" | "pagado" | "entregado" | "parcial";
 
-export type MetodoPago = "efectivo" | "bizum" | "tarjeta" | "transferencia";
+export type MetodoPago =
+  | "efectivo"
+  | "bizum"
+  | "tarjeta"
+  | "transferencia"
+  | "cambio";

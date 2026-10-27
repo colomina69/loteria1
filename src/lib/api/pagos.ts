@@ -55,6 +55,7 @@ export type RegistrarCobroInput = {
   sorteoId: string;
   cantidad: number;
   metodoPago: MetodoPago;
+  nombreCambio?: string | null;
 };
 
 export type RegistrarCobroResult = {
@@ -77,6 +78,7 @@ export async function registrarCobro(
     p_sorteo_id: input.sorteoId,
     p_cantidad: cantidad,
     p_metodo_pago: input.metodoPago,
+    p_nombre_cambio: input.nombreCambio?.trim() || null,
   });
 
   if (error) throw error;
@@ -92,6 +94,7 @@ export async function anularCobro(
     sorteoId,
     cantidad: 0,
     metodoPago: "efectivo",
+    nombreCambio: null,
   });
 }
 
