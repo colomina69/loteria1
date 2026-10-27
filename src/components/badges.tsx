@@ -1,7 +1,11 @@
 import { View } from "react-native";
 
-import { TIPO_LABEL } from "@/lib/derive";
-import type { EstadoCuenta, SorteoTipo } from "@/lib/database.types";
+import { MODALIDAD_LABEL, TIPO_LABEL } from "@/lib/derive";
+import type {
+  EstadoCuenta,
+  ModalidadAbonado,
+  SorteoTipo,
+} from "@/lib/database.types";
 
 import { Badge } from "./ui";
 
@@ -35,6 +39,19 @@ export function TipoBadge({ tipo }: { tipo: SorteoTipo }) {
 
 export function EstadoBadge({ estado }: { estado: EstadoCuenta }) {
   return <Badge label={ESTADO_LABEL[estado]} tone={ESTADO_TONE[estado]} />;
+}
+
+export function ModalidadBadge({
+  modalidad,
+}: {
+  modalidad: ModalidadAbonado;
+}) {
+  return (
+    <Badge
+      label={MODALIDAD_LABEL[modalidad]}
+      tone={modalidad === "mensual" ? "info" : "warning"}
+    />
+  );
 }
 
 export function TipoBadges({ tipos }: { tipos: SorteoTipo[] }) {

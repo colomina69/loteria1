@@ -4,7 +4,11 @@ import { Icon } from "@/components/ui/icon";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, FlatList, View } from "react-native";
 
-import { TipoBadges, TipoBadge } from "@/components/badges";
+import {
+  ModalidadBadge,
+  TipoBadge,
+  TipoBadges,
+} from "@/components/badges";
 import {
   AbonadoCobroRow,
   type CobroRowData,
@@ -151,6 +155,7 @@ export default function CobroSorteoScreen() {
           id: abonado.id,
           nombre: abonado.nombre,
           tipos: tiposDeAbonado(abonado),
+          modalidad: abonado.modalidad,
           estado: estadoDePagos(pagos),
           cantidad: decimos,
           monto: decimos * precio,
@@ -407,7 +412,7 @@ export default function CobroSorteoScreen() {
                 {tipo === "navidad" || tipo === "nino" ? (
                   <SwitchRow
                     label="Incluir todos los abonados"
-                    description="Por defecto solo aparecen los que ya participaron en este tipo de sorteo"
+                    description="Además de los de solo extraordinarios, aparecen los que ya participaron en este tipo de sorteo"
                     value={incluirTodos}
                     onValueChange={setIncluirTodos}
                   />
@@ -434,7 +439,7 @@ export default function CobroSorteoScreen() {
                 }
                 description={
                   baseRows.length === 0 && (tipo === "navidad" || tipo === "nino")
-                    ? "Ningún abonado tiene pagos previos en sorteos de este tipo. Activa «Incluir todos los abonados» para continuar."
+                    ? "No hay abonados de solo extraordinarios ni con pagos previos en sorteos de este tipo. Activa «Incluir todos los abonados» para continuar."
                     : baseRows.length === 0
                       ? "Crea abonados activos para poder registrar cobros."
                       : "Prueba con otro nombre o cambia el filtro de estado."
@@ -468,8 +473,17 @@ export default function CobroSorteoScreen() {
           >
             {seleccionado ? (
               <>
-                <View className="flex-row items-center justify-between">
-                  <TipoBadges tipos={seleccionado.tipos} />
+                <View className="flex-row items-center justify-between gap-2">
+                  <View className="flex-row flex-wrap items-center gap-1">
+                    {seleccionado.modalidad === "extraordinario" ? (
+                      <ModalidadBadge modalidad={seleccionado.modalidad} />
+                    ) : null}
+                    <TipoBadges
+                      tipos={seleccionado.tipos.filter(
+                        (item) => item !== "mensual",
+                      )}
+                    />
+                  </View>
                   <AppText variant="caption">
                     {formatMoney(precio)} / décimo
                   </AppText>

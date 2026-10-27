@@ -1,8 +1,12 @@
-import type { AbonadoConHistorial, AbonadoRow } from "../database.types";
+import type {
+  AbonadoConHistorial,
+  AbonadoRow,
+  ModalidadAbonado,
+} from "../database.types";
 import { supabase } from "../supabase";
 
 const ABONADO_SELECT =
-  "id,nombre,activo,created_at,pagos(id,abonado_id,sorteo_id,estado,fecha_pago,created_at,metodo_pago,nombre_cambio,sorteo:sorteos(id,nombre,fecha,precio))";
+  "id,nombre,activo,modalidad,created_at,pagos(id,abonado_id,sorteo_id,estado,fecha_pago,created_at,metodo_pago,nombre_cambio,sorteo:sorteos(id,nombre,fecha,precio))";
 
 function normalizarAbonado(abonado: AbonadoConHistorial): AbonadoConHistorial {
   return {
@@ -42,12 +46,13 @@ export async function getAbonado(id: string): Promise<AbonadoConHistorial> {
 
 export async function crearAbonado(
   nombre: string,
+  modalidad: ModalidadAbonado = "mensual",
   activo = true,
 ): Promise<AbonadoRow> {
   const { data, error } = await supabase
     .from("abonados")
-    .insert({ nombre: nombre.trim(), activo })
-    .select("id,nombre,activo,created_at")
+    .insert({ nombre: nombre.trim(), modalidad, activo })
+    .select("id,nombre,activo,modalidad,created_at")
     .single()
     .returns<AbonadoRow>();
 
@@ -58,6 +63,7 @@ export async function crearAbonado(
 export type ActualizarAbonadoInput = {
   nombre?: string;
   activo?: boolean;
+  modalidad?: ModalidadAbonado;
 };
 
 export async function actualizarAbonado(
@@ -67,6 +73,7 @@ export async function actualizarAbonado(
   const patch: Record<string, unknown> = {};
   if (input.nombre !== undefined) patch.nombre = input.nombre.trim();
   if (input.activo !== undefined) patch.activo = input.activo;
+  if (input.modalidad !== undefined) patch.modalidad = input.modalidad;
 
   const { error } = await supabase.from("abonados").update(patch).eq("id", id);
   if (error) throw error;

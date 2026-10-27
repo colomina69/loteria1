@@ -8,7 +8,7 @@ import type { AbonadoConHistorial } from "@/lib/database.types";
 import { formatMoney } from "@/lib/format";
 import { colors } from "@/lib/theme";
 
-import { TipoBadges } from "../badges";
+import { ModalidadBadge, TipoBadges } from "../badges";
 import { AppText, Badge } from "../ui";
 
 export const AbonadoCard = memo(function AbonadoCard({
@@ -39,7 +39,12 @@ export const AbonadoCard = memo(function AbonadoCard({
             </AppText>
             {!abonado.activo ? <Badge label="Inactivo" tone="danger" /> : null}
           </View>
-          <TipoBadges tipos={tipos} />
+          <View className="flex-row flex-wrap items-center gap-1">
+            <ModalidadBadge modalidad={abonado.modalidad} />
+            <TipoBadges
+              tipos={tipos.filter((tipo) => tipo !== "mensual")}
+            />
+          </View>
         </View>
         <Icon name="chevron-forward" size={18} color={colors.muted} />
       </View>

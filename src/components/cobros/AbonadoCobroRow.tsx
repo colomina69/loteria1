@@ -3,17 +3,22 @@ import { Icon } from "@/components/ui/icon";
 
 import { Pressable, View } from "react-native";
 
-import type { EstadoCuenta, SorteoTipo } from "@/lib/database.types";
+import type {
+  EstadoCuenta,
+  ModalidadAbonado,
+  SorteoTipo,
+} from "@/lib/database.types";
 import { etiquetaMetodo, formatFechaHora, formatMoney } from "@/lib/format";
 import { colors } from "@/lib/theme";
 
-import { EstadoBadge, TipoBadges } from "../badges";
+import { EstadoBadge, ModalidadBadge, TipoBadges } from "../badges";
 import { AppText } from "../ui";
 
 export type CobroRowData = {
   id: string;
   nombre: string;
   tipos: SorteoTipo[];
+  modalidad: ModalidadAbonado;
   estado: EstadoCuenta;
   cantidad: number;
   monto: number;
@@ -44,7 +49,14 @@ export const AbonadoCobroRow = memo(function AbonadoCobroRow({
             </AppText>
             <EstadoBadge estado={row.estado} />
           </View>
-          <TipoBadges tipos={row.tipos} />
+          <View className="flex-row flex-wrap items-center gap-1">
+            {row.modalidad === "extraordinario" ? (
+              <ModalidadBadge modalidad={row.modalidad} />
+            ) : null}
+            <TipoBadges
+              tipos={row.tipos.filter((tipo) => tipo !== "mensual")}
+            />
+          </View>
         </View>
         <View className="items-end gap-1">
           <AppText className="text-sm font-bold text-zinc-100">

@@ -10,7 +10,11 @@ import {
   View,
 } from "react-native";
 
-import { EstadoBadge, TipoBadges } from "@/components/badges";
+import {
+  EstadoBadge,
+  ModalidadBadge,
+  TipoBadges,
+} from "@/components/badges";
 import {
   AppText,
   Button,
@@ -21,6 +25,7 @@ import {
   LoadingBlock,
   Screen,
   SectionHeader,
+  Segmented,
   SwitchRow,
 } from "@/components/ui";
 import { useAsync } from "@/hooks/useAsync";
@@ -30,10 +35,15 @@ import {
   decimosActivos,
   esPagoActivo,
   estadoDePagos,
+  MODALIDAD_OPTIONS,
   resumenAbonado,
   tiposDeAbonado,
 } from "@/lib/derive";
-import type { AbonadoConHistorial, EstadoCuenta } from "@/lib/database.types";
+import type {
+  AbonadoConHistorial,
+  EstadoCuenta,
+  ModalidadAbonado,
+} from "@/lib/database.types";
 import {
   etiquetaMetodo,
   formatFechaHora,
@@ -102,6 +112,7 @@ function AbonadoEditor({
   onSaved: () => Promise<void>;
 }) {
   const [nombre, setNombre] = useState(abonado.nombre);
+  const [modalidad, setModalidad] = useState<ModalidadAbonado>(abonado.modalidad);
   const [activo, setActivo] = useState(abonado.activo);
   const [guardando, setGuardando] = useState(false);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
@@ -115,7 +126,7 @@ function AbonadoEditor({
     setGuardando(true);
     setErrorAccion(null);
     try {
-      await actualizarAbonado(abonado.id, { nombre, activo });
+      await actualizarAbonado(abonado.id, { nombre, activo, modalidad });
       await onSaved();
     } catch (err) {
       setErrorAccion(mensajeError(err));
@@ -134,6 +145,19 @@ function AbonadoEditor({
         placeholder="Nombre del abonado"
         autoCapitalize="words"
       />
+      <View className="gap-2">
+        <AppText variant="label">Tipo de abonado</AppText>
+        <Segmented
+          options={MODALIDAD_OPTIONS}
+          value={modalidad}
+          onChange={setModalidad}
+        />
+        <AppText variant="caption" className="leading-5">
+          {modalidad === "mensual"
+            ? "Participa en los sorteos mensuales. En Navidad y Niño aparece si ya participó antes o si activas «Incluir todos»."
+            : "Solo aparece en los sorteos de Navidad, Niño y extraordinarios; nunca en los mensuales."}
+        </AppText>
+      </View>
       <SwitchRow
         label="Abonado activo"
         description="Los inactivos no aparecen para registrar cobros"
@@ -197,7 +221,12 @@ export default function AbonadoDetalleScreen() {
                     Alta: {formatFechaCorta(data.created_at.slice(0, 10))}
                   </AppText>
                 </View>
-                <TipoBadges tipos={tipos} />
+                <View className="items-end gap-1">
+                  <ModalidadBadge modalidad={data.modalidad} />
+                  <TipoBadges
+                    tipos={tipos.filter((tipo) => tipo !== "mensual")}
+                  />
+                </View>
               </View>
 
               <View className="flex-row gap-3">

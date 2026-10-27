@@ -100,10 +100,11 @@ export default function AbonadosScreen() {
           abonados.length > 0 ? (
             <View className="mt-4 gap-1">
               <AppText variant="caption" className="text-center">
-                «Mensual» se asigna a todo abonado activo.
+                «Mensual» participa en todos los sorteos mensuales.
               </AppText>
               <AppText variant="caption" className="text-center">
-                «Navidad» y «Niño» se deducen de su historial de pagos.
+                «Solo extraordinarios» aparece únicamente en Navidad, Niño y
+                extraordinarios.
               </AppText>
             </View>
           ) : undefined

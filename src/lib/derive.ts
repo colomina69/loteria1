@@ -1,6 +1,7 @@
 import type {
   AbonadoConHistorial,
   EstadoCuenta,
+  ModalidadAbonado,
   PagoRow,
   SorteoTipo,
 } from "./database.types";
@@ -11,6 +12,16 @@ export const TIPO_LABEL: Record<SorteoTipo, string> = {
   nino: "Niño",
   extraordinario: "Extraordinario",
 };
+
+export const MODALIDAD_LABEL: Record<ModalidadAbonado, string> = {
+  mensual: "Mensual",
+  extraordinario: "Solo extraordinarios",
+};
+
+export const MODALIDAD_OPTIONS: { value: ModalidadAbonado; label: string }[] = [
+  { value: "mensual", label: MODALIDAD_LABEL.mensual },
+  { value: "extraordinario", label: MODALIDAD_LABEL.extraordinario },
+];
 
 export const TIPO_ORDER: SorteoTipo[] = ["mensual", "navidad", "nino", "extraordinario"];
 
@@ -53,7 +64,7 @@ export function tiposDeAbonado(abonado: AbonadoConHistorial): SorteoTipo[] {
       tipos.add(tipoDesdeNombre(pago.sorteo.nombre));
     }
   }
-  if (abonado.activo) tipos.add("mensual");
+  if (abonado.activo && abonado.modalidad === "mensual") tipos.add("mensual");
   return TIPO_ORDER.filter((tipo) => tipos.has(tipo));
 }
 
@@ -63,6 +74,7 @@ export function esElegible(
   incluirTodos = false,
 ): boolean {
   if (!abonado.activo) return false;
+  if (abonado.modalidad === "extraordinario") return tipo !== "mensual";
   if (tipo === "mensual" || tipo === "extraordinario" || incluirTodos) return true;
   return abonado.pagos.some(
     (pago) =>

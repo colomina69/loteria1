@@ -43,8 +43,9 @@ Antes de usar la app ejecuta en orden los archivos de `supabase/migrations/` en 
 
 - `001_stock.sql`: añade `decimos_iniciales` y `decimos_extra` a `sorteos`, elimina la restricción que impedía varios décimos por abonado/sorteo, crea `registrar_cobro` y `ampliar_stock`, y rellena el stock histórico.
 - `002_cambio.sql`: añade `pagos.nombre_cambio` y actualiza `registrar_cobro` para el método «Cambio».
+- `003_modalidad.sql`: añade `abonados.modalidad` (`mensual` o `extraordinario`) con valor por defecto `mensual`.
 
-Sin estas migraciones las pantallas de sorteos y cobros fallarán.
+Sin estas migraciones las pantallas de sorteos, abonados y cobros fallarán.
 
 ## Base de datos
 
@@ -53,13 +54,14 @@ La app usa el cliente oficial `@supabase/postgrest-js` para consultas REST (sin 
 | Tabla | Columnas usadas |
 | --- | --- |
 | `sorteos` | `id`, `nombre`, `fecha`, `precio`, `decimos_iniciales`, `decimos_extra`, `created_at` |
-| `abonados` | `id`, `nombre`, `activo`, `created_at` |
+| `abonados` | `id`, `nombre`, `activo`, `modalidad`, `created_at` |
 | `pagos` | `id`, `abonado_id`, `sorteo_id`, `estado`, `fecha_pago`, `metodo_pago`, `nombre_cambio`, `created_at` |
 
 Reglas:
 
 - **Tipo de sorteo:** se deduce del nombre (`Navidad`, `Niño` o `Extraordinario`; si no, mensual).
-- **Suscripciones:** «Mensual» se asigna a todo abonado activo; «Navidad» y «Niño» se deducen del historial de pagos.
+- **Modalidad:** al crear o editar un abonado se elige «Mensual» (participa en los sorteos mensuales) o «Solo extraordinarios» (solo Navidad, Niño y extraordinarios). Se guarda en `abonados.modalidad`.
+- **Suscripciones:** «Navidad» y «Niño» se deducen del historial de pagos; los abonados de solo extraordinarios siempre son elegibles en esos sorteos.
 - **Stock:** disponible = `decimos_iniciales + decimos_extra - décimos vendidos`. Se muestra en las tarjetas, el detalle y la hoja de cobro.
 - **Varios décimos:** cada fila de `pagos` es un décimo del abonado en el sorteo. El RPC valida y ajusta el stock de forma atómica.
 - **Ampliación:** los sorteos no mensuales tienen un botón «Ampliar stock»; los mensuales fijan el inventario al crearse.

@@ -14,13 +14,17 @@ import {
   ErrorBlock,
   Input,
   Screen,
+  Segmented,
 } from "@/components/ui";
 import { crearAbonado } from "@/lib/api/abonados";
 import { mensajeError } from "@/lib/api/errors";
+import type { ModalidadAbonado } from "@/lib/database.types";
+import { MODALIDAD_OPTIONS } from "@/lib/derive";
 
 export default function NuevoAbonadoScreen() {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
+  const [modalidad, setModalidad] = useState<ModalidadAbonado>("mensual");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +37,7 @@ export default function NuevoAbonadoScreen() {
     setGuardando(true);
     setError(null);
     try {
-      await crearAbonado(nombre);
+      await crearAbonado(nombre, modalidad);
       router.back();
     } catch (err) {
       setError(mensajeError(err));
@@ -60,18 +64,22 @@ export default function NuevoAbonadoScreen() {
               placeholder="Ej. María García"
               autoCapitalize="words"
               autoFocus
-              hint="La base de datos actual no guarda teléfono; solo el nombre."
             />
-          </Card>
 
-          <View className="gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-            <AppText variant="bodyStrong">Suscripciones</AppText>
-            <AppText variant="caption" className="leading-5">
-              No se guardan como columnas. «Mensual» se asigna automáticamente a todo
-              abonado activo. «Navidad» y «Niño» se deducen de los pagos registrados en
-              sorteos con esas palabras en el nombre.
-            </AppText>
-          </View>
+            <View className="gap-2">
+              <AppText variant="label">Tipo de abonado</AppText>
+              <Segmented
+                options={MODALIDAD_OPTIONS}
+                value={modalidad}
+                onChange={setModalidad}
+              />
+              <AppText variant="caption" className="leading-5">
+                {modalidad === "mensual"
+                  ? "Participa en todos los sorteos mensuales. En Navidad y Niño aparece si ya participó antes o si activas «Incluir todos»."
+                  : "Solo se le pedirá cobro en los sorteos de Navidad, Niño y extraordinarios. No aparecerá en los mensuales."}
+              </AppText>
+            </View>
+          </Card>
 
           {error ? <ErrorBlock message={error} /> : null}
 

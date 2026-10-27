@@ -1,5 +1,7 @@
 export type SorteoTipo = "mensual" | "navidad" | "nino" | "extraordinario";
 
+export type ModalidadAbonado = "mensual" | "extraordinario";
+
 export type PagoEstado = "pending" | "paid" | "delivered";
 
 export type SorteoRow = {
@@ -16,6 +18,7 @@ export type AbonadoRow = {
   id: string;
   nombre: string;
   activo: boolean;
+  modalidad: ModalidadAbonado;
   created_at: string;
 };
 
