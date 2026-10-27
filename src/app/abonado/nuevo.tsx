@@ -75,7 +75,7 @@ export default function NuevoAbonadoScreen() {
               />
               <AppText variant="caption" className="leading-5">
                 {modalidad === "mensual"
-                  ? "Participa en todos los sorteos mensuales. En Navidad y Niño aparece si ya participó antes o si activas «Incluir todos»."
+                  ? "Participa en todos los sorteos, incluidos los mensuales, Navidad y Niño."
                   : "Solo se le pedirá cobro en los sorteos de Navidad, Niño y extraordinarios. No aparecerá en los mensuales."}
               </AppText>
             </View>

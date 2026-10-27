@@ -63,7 +63,11 @@ export const SorteoCard = memo(function SorteoCard({
       </View>
 
       <View className="mt-4 flex-row flex-wrap gap-x-5 gap-y-3">
-        <Metric icon="ticket-outline" value={String(sorteo.decimos)} label="vendidos" />
+        <Metric
+          icon="ticket-outline"
+          value={String(sorteo.decimos)}
+          label="vendidos"
+        />
         <Metric
           icon="people-outline"
           value={String(sorteo.abonadosCobrados)}
@@ -71,10 +75,25 @@ export const SorteoCard = memo(function SorteoCard({
         />
         <Metric
           icon="cash-outline"
-          value={formatMoney(sorteo.recaudado)}
-          label="cobrado"
+          value={formatMoney(sorteo.totalVendido)}
+          label="total vendido"
         />
       </View>
+
+      {sorteo.deudaCambios > 0 ? (
+        <View className="mt-3 flex-row items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <View className="flex-row items-center gap-1.5">
+            <Icon name="swap-horizontal" size={14} color={colors.warning} />
+            <AppText className="text-xs font-semibold text-amber-200">
+              Debo por {sorteo.decimosCambiados} cambio
+              {sorteo.decimosCambiados === 1 ? "" : "s"}
+            </AppText>
+          </View>
+          <AppText className="text-sm font-bold text-amber-300">
+            {formatMoney(sorteo.deudaCambios)}
+          </AppText>
+        </View>
+      ) : null}
 
       <View className="mt-4 gap-2">
         <View className="flex-row items-center justify-between">

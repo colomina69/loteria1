@@ -21,6 +21,7 @@ import {
 } from "@/components/ui";
 import { useAsync } from "@/hooks/useAsync";
 import { mensajeError } from "@/lib/api/errors";
+import { anularCambioSuelto } from "@/lib/api/pagos";
 import {
   actualizarSorteo,
   ampliarStock,
@@ -74,6 +75,7 @@ export default function SorteoDetalleScreen() {
   const [ampliarCantidad, setAmpliarCantidad] = useState("");
   const [ampliando, setAmpliando] = useState(false);
   const [errorAmpliar, setErrorAmpliar] = useState<string | null>(null);
+  const [anulandoCambioId, setAnulandoCambioId] = useState<string | null>(null);
 
   const resumen = useMemo(() => {
     const pagos = data?.pagos ?? [];
@@ -81,6 +83,7 @@ export default function SorteoDetalleScreen() {
     const grupos = new Map<string, Grupo>();
 
     for (const pago of pagos) {
+      if (!pago.abonado_id) continue;
       const actual = grupos.get(pago.abonado_id) ?? {
         abonadoId: pago.abonado_id,
         nombre: pago.abonado?.nombre ?? "Abonado",
@@ -112,8 +115,18 @@ export default function SorteoDetalleScreen() {
       })
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+    const conAbonado = activos.filter((pago) => pago.abonado_id !== null);
+    const cambios = activos
+      .filter((pago) => pago.abonado_id === null)
+      .map((pago) => ({
+        id: pago.id,
+        nombre: pago.nombre_cambio ?? "Cambio",
+        fecha: pago.fecha_pago,
+      }))
+      .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
+
     const metodos = new Map<string, { count: number; total: number }>();
-    for (const pago of activos) {
+    for (const pago of conAbonado) {
       const metodo = pago.metodo_pago ?? "sin método";
       const acumulado = metodos.get(metodo) ?? { count: 0, total: 0 };
       acumulado.count += 1;
@@ -123,13 +136,20 @@ export default function SorteoDetalleScreen() {
 
     return {
       decimos: activos.length,
-      abonadosCobrados: new Set(activos.map((pago) => pago.abonado_id)).size,
+      decimosCobrados: conAbonado.length,
+      decimosCambiados: cambios.length,
+      abonadosCobrados: new Set(
+        conAbonado
+          .map((pago) => pago.abonado_id)
+          .filter((id): id is string => id !== null),
+      ).size,
       entregados: activos.filter((pago) => pago.estado === "delivered").length,
       pendientes: pagos.filter((pago) => pago.estado === "pending").length,
       metodos: Array.from(metodos.entries())
         .map(([metodo, stats]) => ({ metodo, ...stats }))
         .sort((a, b) => b.count - a.count),
       grupos: lista,
+      cambios,
     };
   }, [data]);
 
@@ -231,8 +251,39 @@ export default function SorteoDetalleScreen() {
     );
   }
 
+  function confirmarAnularCambio(cambio: {
+    id: string;
+    nombre: string;
+  }) {
+    Alert.alert(
+      "Anular cambio",
+      `El décimo cambiado por «${cambio.nombre}» volverá al stock disponible.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Anular",
+          style: "destructive",
+          onPress: async () => {
+            setAnulandoCambioId(cambio.id);
+            try {
+              await anularCambioSuelto(cambio.id);
+              await reload();
+            } catch (err) {
+              Alert.alert("Error", mensajeError(err));
+            } finally {
+              setAnulandoCambioId(null);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   const tipo = data ? tipoDesdeNombre(data.nombre) : "mensual";
-  const recaudado = resumen.decimos * Number(data?.precio ?? 0);
+  const precio = Number(data?.precio ?? 0);
+  const recaudado = resumen.decimosCobrados * precio;
+  const deudaCambios = resumen.decimosCambiados * precio;
+  const totalVendido = resumen.decimos * precio;
   const stockTotal = data
     ? Number(data.decimos_iniciales) + Number(data.decimos_extra)
     : 0;
@@ -283,11 +334,30 @@ export default function SorteoDetalleScreen() {
                 </View>
                 <View className="flex-1 rounded-xl bg-zinc-950 p-3">
                   <AppText className="text-lg font-bold text-emerald-400">
-                    {formatMoney(recaudado)}
+                    {formatMoney(totalVendido)}
                   </AppText>
-                  <AppText variant="caption">cobrado</AppText>
+                  <AppText variant="caption">total vendido</AppText>
                 </View>
               </View>
+
+              {deudaCambios > 0 ? (
+                <View className="flex-row items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                  <View className="flex-row items-center gap-1.5">
+                    <Icon
+                      name="swap-horizontal"
+                      size={14}
+                      color={colors.warning}
+                    />
+                    <AppText className="text-xs font-semibold text-amber-200">
+                      Debo por {resumen.decimosCambiados} cambio
+                      {resumen.decimosCambiados === 1 ? "" : "s"}
+                    </AppText>
+                  </View>
+                  <AppText className="text-sm font-bold text-amber-300">
+                    {formatMoney(deudaCambios)}
+                  </AppText>
+                </View>
+              ) : null}
 
               <View className="gap-1.5">
                 <View className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
@@ -305,6 +375,11 @@ export default function SorteoDetalleScreen() {
                 <InfoRow label="Precio por décimo" value={formatMoney(Number(data.precio))} />
                 <InfoRow label="Abonados con cobro" value={String(resumen.abonadosCobrados)} />
                 <InfoRow label="Décimos entregados" value={String(resumen.entregados)} />
+                <InfoRow
+                  label="Décimos cambiados"
+                  value={String(resumen.decimosCambiados)}
+                />
+                <InfoRow label="Cobrado" value={formatMoney(recaudado)} />
                 <InfoRow label="Filas pendientes" value={String(resumen.pendientes)} />
               </View>
 
@@ -428,6 +503,42 @@ export default function SorteoDetalleScreen() {
                 ))
               )}
             </View>
+
+            {resumen.cambios.length > 0 ? (
+              <View className="gap-3">
+                <SectionHeader title="Cambios sin abonado" />
+                {resumen.cambios.map((cambio) => (
+                  <View
+                    key={cambio.id}
+                    className="flex-row items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-3"
+                  >
+                    <View className="h-9 w-9 items-center justify-center rounded-full bg-amber-500/15">
+                      <Icon
+                        name="swap-horizontal"
+                        size={17}
+                        color={colors.warning}
+                      />
+                    </View>
+                    <View className="flex-1 gap-0.5">
+                      <AppText variant="bodyStrong" numberOfLines={1}>
+                        {cambio.nombre}
+                      </AppText>
+                      <AppText variant="caption">
+                        {formatFechaHora(cambio.fecha)} · 1 décimo
+                      </AppText>
+                    </View>
+                    <Button
+                      title="Anular"
+                      size="sm"
+                      variant="danger"
+                      icon="trash-outline"
+                      loading={anulandoCambioId === cambio.id}
+                      onPress={() => confirmarAnularCambio(cambio)}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
             <Card className="gap-3">
               <AppText variant="label">Zona de riesgo</AppText>

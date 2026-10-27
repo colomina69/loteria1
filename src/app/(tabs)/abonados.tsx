@@ -100,7 +100,7 @@ export default function AbonadosScreen() {
           abonados.length > 0 ? (
             <View className="mt-4 gap-1">
               <AppText variant="caption" className="text-center">
-                «Mensual» participa en todos los sorteos mensuales.
+                «Mensual» participa en todos los sorteos.
               </AppText>
               <AppText variant="caption" className="text-center">
                 «Solo extraordinarios» aparece únicamente en Navidad, Niño y

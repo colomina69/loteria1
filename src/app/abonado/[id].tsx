@@ -104,13 +104,8 @@ function construirHistorial(
   return Array.from(grupos.values()).sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
 
-function AbonadoEditor({
-  abonado,
-  onSaved,
-}: {
-  abonado: AbonadoConHistorial;
-  onSaved: () => Promise<void>;
-}) {
+function AbonadoEditor({ abonado }: { abonado: AbonadoConHistorial }) {
+  const router = useRouter();
   const [nombre, setNombre] = useState(abonado.nombre);
   const [modalidad, setModalidad] = useState<ModalidadAbonado>(abonado.modalidad);
   const [activo, setActivo] = useState(abonado.activo);
@@ -127,7 +122,7 @@ function AbonadoEditor({
     setErrorAccion(null);
     try {
       await actualizarAbonado(abonado.id, { nombre, activo, modalidad });
-      await onSaved();
+      router.back();
     } catch (err) {
       setErrorAccion(mensajeError(err));
     } finally {
@@ -154,7 +149,7 @@ function AbonadoEditor({
         />
         <AppText variant="caption" className="leading-5">
           {modalidad === "mensual"
-            ? "Participa en los sorteos mensuales. En Navidad y Niño aparece si ya participó antes o si activas «Incluir todos»."
+            ? "Participa en todos los sorteos, incluidos los mensuales, Navidad y Niño."
             : "Solo aparece en los sorteos de Navidad, Niño y extraordinarios; nunca en los mensuales."}
         </AppText>
       </View>
@@ -251,7 +246,7 @@ export default function AbonadoDetalleScreen() {
               </View>
             </Card>
 
-            <AbonadoEditor key={data.id} abonado={data} onSaved={reload} />
+            <AbonadoEditor key={data.id} abonado={data} />
 
             {error ? <ErrorBlock message={error} onRetry={reload} /> : null}
 

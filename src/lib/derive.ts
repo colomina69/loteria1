@@ -71,17 +71,10 @@ export function tiposDeAbonado(abonado: AbonadoConHistorial): SorteoTipo[] {
 export function esElegible(
   abonado: AbonadoConHistorial,
   tipo: SorteoTipo,
-  incluirTodos = false,
 ): boolean {
   if (!abonado.activo) return false;
   if (abonado.modalidad === "extraordinario") return tipo !== "mensual";
-  if (tipo === "mensual" || tipo === "extraordinario" || incluirTodos) return true;
-  return abonado.pagos.some(
-    (pago) =>
-      esPagoActivo(pago) &&
-      pago.sorteo !== null &&
-      tipoDesdeNombre(pago.sorteo.nombre) === tipo,
-  );
+  return true;
 }
 
 export function resumenAbonado(abonado: AbonadoConHistorial): {

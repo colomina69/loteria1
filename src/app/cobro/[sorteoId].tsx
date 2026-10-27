@@ -28,7 +28,6 @@ import {
   Segmented,
   Sheet,
   Stepper,
-  SwitchRow,
 } from "@/components/ui";
 import { useAsync } from "@/hooks/useAsync";
 import { listAbonados } from "@/lib/api/abonados";
@@ -36,6 +35,7 @@ import { mensajeError } from "@/lib/api/errors";
 import {
   anularCobro,
   marcarEntregado,
+  registrarCambioSuelto,
   registrarCobro,
 } from "@/lib/api/pagos";
 import { getSorteo } from "@/lib/api/sorteos";
@@ -101,7 +101,6 @@ export default function CobroSorteoScreen() {
 
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
-  const [incluirTodos, setIncluirTodos] = useState(false);
 
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const [cantidad, setCantidad] = useState(0);
@@ -111,18 +110,55 @@ export default function CobroSorteoScreen() {
   const [guardando, setGuardando] = useState(false);
   const [errorAccion, setErrorAccion] = useState<string | null>(null);
 
+  const [cambioVisible, setCambioVisible] = useState(false);
+  const [nombreCambioSuelto, setNombreCambioSuelto] = useState("");
+  const [guardandoCambio, setGuardandoCambio] = useState(false);
+  const [errorCambio, setErrorCambio] = useState<string | null>(null);
+
   const tipo = data ? tipoDesdeNombre(data.sorteo.nombre) : "mensual";
+  const esExtraordinario = tipo !== "mensual";
   const metodosDisponibles: { value: MetodoPago; label: string }[] =
     tipo === "navidad" || tipo === "nino"
       ? [...METODOS, { value: "cambio", label: "Cambio" }]
       : METODOS;
   const precio = Number(data?.sorteo.precio ?? 0);
+  const totalesSorteo = useMemo(() => {
+    if (!data) {
+      return {
+        activos: 0,
+        cobrados: 0,
+        cambios: 0,
+        abonadosCobrados: 0,
+        recaudado: 0,
+        totalVendido: 0,
+        deudaCambios: 0,
+      };
+    }
+
+    const activos = data.sorteo.pagos.filter(esPagoActivo);
+    const cambios = activos.filter((pago) => pago.abonado_id === null).length;
+    const cobrados = activos.length - cambios;
+    const abonados = new Set(
+      activos
+        .map((pago) => pago.abonado_id)
+        .filter((id): id is string => id !== null),
+    );
+    const precioSorteo = Number(data.sorteo.precio);
+
+    return {
+      activos: activos.length,
+      cobrados,
+      cambios,
+      abonadosCobrados: abonados.size,
+      recaudado: cobrados * precioSorteo,
+      totalVendido: activos.length * precioSorteo,
+      deudaCambios: cambios * precioSorteo,
+    };
+  }, [data]);
   const stockTotal = data
     ? Number(data.sorteo.decimos_iniciales) + Number(data.sorteo.decimos_extra)
     : 0;
-  const stockVendidos = data
-    ? data.sorteo.pagos.filter(esPagoActivo).length
-    : 0;
+  const stockVendidos = totalesSorteo.activos;
   const stockDisponibles = Math.max(0, stockTotal - stockVendidos);
   const pctStock =
     stockTotal > 0
@@ -143,7 +179,7 @@ export default function CobroSorteoScreen() {
   const baseRows = useMemo<CobroRowData[]>(() => {
     if (!data) return [];
     return data.abonados
-      .filter((abonado) => esElegible(abonado, tipo, incluirTodos))
+      .filter((abonado) => esElegible(abonado, tipo))
       .map((abonado) => {
         const pagos = abonado.pagos.filter(
           (pago) => pago.sorteo_id === data.sorteo.id,
@@ -164,7 +200,7 @@ export default function CobroSorteoScreen() {
           fecha: activo?.fecha_pago ?? null,
         };
       });
-  }, [data, tipo, incluirTodos, precio]);
+  }, [data, tipo, precio]);
 
   const filas = useMemo(() => {
     const texto = normalizar(busqueda.trim());
@@ -266,6 +302,43 @@ export default function CobroSorteoScreen() {
     }
   }
 
+  function abrirCambio() {
+    setNombreCambioSuelto("");
+    setErrorCambio(null);
+    setCambioVisible(true);
+  }
+
+  function cerrarCambio() {
+    if (guardandoCambio) return;
+    setCambioVisible(false);
+    setNombreCambioSuelto("");
+    setErrorCambio(null);
+  }
+
+  async function guardarCambio() {
+    if (!data) return;
+    if (nombreCambioSuelto.trim().length === 0) {
+      setErrorCambio("Indica la entidad o el décimo con el que se hace el cambio.");
+      return;
+    }
+
+    setGuardandoCambio(true);
+    setErrorCambio(null);
+    try {
+      await registrarCambioSuelto({
+        sorteoId: data.sorteo.id,
+        nombre: nombreCambioSuelto,
+      });
+      setCambioVisible(false);
+      setNombreCambioSuelto("");
+      await reload();
+    } catch (err) {
+      setErrorCambio(mensajeError(err));
+    } finally {
+      setGuardandoCambio(false);
+    }
+  }
+
   function confirmarAnulacion() {
     if (!data || !seleccionadoId) return;
     Alert.alert(
@@ -359,9 +432,24 @@ export default function CobroSorteoScreen() {
                     </View>
                     <View className="flex-1 rounded-xl bg-zinc-950 p-3">
                       <AppText className="text-lg font-bold text-emerald-400">
-                        {formatMoney(resumen.recaudado)}
+                        {formatMoney(totalesSorteo.totalVendido)}
                       </AppText>
-                      <AppText variant="caption">recaudado</AppText>
+                      <AppText variant="caption">total vendido</AppText>
+                    </View>
+                  </View>
+
+                  <View className="flex-row gap-2">
+                    <View className="flex-1 rounded-xl bg-zinc-950 p-3">
+                      <AppText className="text-base font-bold text-emerald-400">
+                        {formatMoney(totalesSorteo.recaudado)}
+                      </AppText>
+                      <AppText variant="caption">cobrado</AppText>
+                    </View>
+                    <View className="flex-1 rounded-xl bg-zinc-950 p-3">
+                      <AppText className="text-base font-bold text-amber-300">
+                        {formatMoney(totalesSorteo.deudaCambios)}
+                      </AppText>
+                      <AppText variant="caption">debo por cambios</AppText>
                     </View>
                   </View>
 
@@ -380,9 +468,20 @@ export default function CobroSorteoScreen() {
                   <View className="flex-row items-center gap-1.5">
                     <Icon name="information-circle-outline" size={14} color={colors.muted} />
                     <AppText variant="caption">
-                      {resumen.decimos} décimos cobrados en este sorteo
+                      {totalesSorteo.cobrados} décimos cobrados ·{" "}
+                      {totalesSorteo.cambios} cambiados sin abonado
                     </AppText>
                   </View>
+
+                  {esExtraordinario ? (
+                    <Button
+                      title="Cambiar un décimo"
+                      variant="secondary"
+                      icon="swap-horizontal"
+                      disabled={stockDisponibles === 0}
+                      onPress={abrirCambio}
+                    />
+                  ) : null}
 
                   {metodos.length > 0 ? (
                     <View className="flex-row flex-wrap gap-2">
@@ -409,15 +508,6 @@ export default function CobroSorteoScreen() {
                   placeholder="Buscar abonado…"
                 />
 
-                {tipo === "navidad" || tipo === "nino" ? (
-                  <SwitchRow
-                    label="Incluir todos los abonados"
-                    description="Además de los de solo extraordinarios, aparecen los que ya participaron en este tipo de sorteo"
-                    value={incluirTodos}
-                    onValueChange={setIncluirTodos}
-                  />
-                ) : null}
-
                 <Segmented
                   options={FILTROS_ESTADO}
                   value={filtroEstado}
@@ -438,21 +528,11 @@ export default function CobroSorteoScreen() {
                     : "Sin resultados"
                 }
                 description={
-                  baseRows.length === 0 && (tipo === "navidad" || tipo === "nino")
-                    ? "No hay abonados de solo extraordinarios ni con pagos previos en sorteos de este tipo. Activa «Incluir todos los abonados» para continuar."
-                    : baseRows.length === 0
-                      ? "Crea abonados activos para poder registrar cobros."
-                      : "Prueba con otro nombre o cambia el filtro de estado."
-                }
-                actionLabel={
-                  baseRows.length === 0 && (tipo === "navidad" || tipo === "nino")
-                    ? "Incluir todos"
-                    : undefined
-                }
-                onAction={
-                  baseRows.length === 0 && (tipo === "navidad" || tipo === "nino")
-                    ? () => setIncluirTodos(true)
-                    : undefined
+                  baseRows.length === 0
+                    ? tipo === "mensual"
+                      ? "No hay abonados mensuales activos. Los de solo extraordinarios no aparecen en sorteos mensuales."
+                      : "Crea abonados activos para poder registrar cobros."
+                    : "Prueba con otro nombre o cambia el filtro de estado."
                 }
               />
             }
@@ -584,6 +664,35 @@ export default function CobroSorteoScreen() {
                 ) : null}
               </>
             ) : null}
+          </Sheet>
+
+          <Sheet
+            visible={cambioVisible}
+            onClose={cerrarCambio}
+            title="Cambio de décimo"
+          >
+            <AppText variant="caption" className="leading-5">
+              El décimo sale del stock de este sorteo y se registra sin asignarlo
+              a ningún abonado. Indica de quién o de qué entidad procede el décimo
+              que entra.
+            </AppText>
+            <Input
+              label="Entidad o décimo recibido"
+              value={nombreCambioSuelto}
+              onChangeText={setNombreCambioSuelto}
+              placeholder="Ej. Pepe / décimo 12345"
+              hint="Este cambio no aparecerá en el historial de ningún abonado."
+              autoCapitalize="words"
+              autoFocus
+            />
+            {errorCambio ? <ErrorBlock message={errorCambio} /> : null}
+            <Button
+              title="Registrar cambio"
+              icon="swap-horizontal"
+              loading={guardandoCambio}
+              disabled={nombreCambioSuelto.trim().length === 0}
+              onPress={guardarCambio}
+            />
           </Sheet>
         </>
       ) : null}

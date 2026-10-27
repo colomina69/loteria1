@@ -24,7 +24,7 @@ export type AbonadoRow = {
 
 export type PagoRow = {
   id: string;
-  abonado_id: string;
+  abonado_id: string | null;
   sorteo_id: string;
   estado: string;
   fecha_pago: string | null;
@@ -59,8 +59,11 @@ export type SorteoResumen = SorteoRow & {
   decimosTotales: number;
   decimosDisponibles: number;
   decimos: number;
+  decimosCambiados: number;
   abonadosCobrados: number;
   recaudado: number;
+  totalVendido: number;
+  deudaCambios: number;
   entregados: number;
   pendientes: number;
 };

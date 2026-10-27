@@ -41,6 +41,7 @@ export async function listUltimosCobros(limit = 6): Promise<PagoConRelaciones[]>
     .select(
       "*,abonado:abonados(id,nombre,activo),sorteo:sorteos(id,nombre,fecha,precio)",
     )
+    .not("abonado_id", "is", null)
     .in("estado", ["paid", "delivered"])
     .order("fecha_pago", { ascending: false, nullsFirst: false })
     .limit(limit)
@@ -83,6 +84,38 @@ export async function registrarCobro(
 
   if (error) throw error;
   return (data as RegistrarCobroResult | null) ?? null;
+}
+
+export type RegistrarCambioSueltoInput = {
+  sorteoId: string;
+  nombre: string;
+};
+
+/**
+ * Registra un décimo cambiado por otro de otra entidad.
+ * La fila no se atribuye a ningún abonado y descuenta stock del sorteo.
+ */
+export async function registrarCambioSuelto(
+  input: RegistrarCambioSueltoInput,
+): Promise<RegistrarCobroResult | null> {
+  const { data, error } = await supabase.rpc("registrar_cambio_suelto", {
+    p_sorteo_id: input.sorteoId,
+    p_nombre: input.nombre.trim(),
+  });
+
+  if (error) throw error;
+  return (data as RegistrarCobroResult | null) ?? null;
+}
+
+export async function anularCambioSuelto(pagoId: string): Promise<void> {
+  const { error } = await supabase
+    .from("pagos")
+    .delete()
+    .eq("id", pagoId)
+    .is("abonado_id", null)
+    .eq("metodo_pago", "cambio");
+
+  if (error) throw error;
 }
 
 export async function anularCobro(

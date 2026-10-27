@@ -223,6 +223,15 @@ function LayersIcon() {
   return <Path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />;
 }
 
+function SwapIcon() {
+  return (
+    <>
+      <Path d="M3 7h14M13 3l4 4-4 4" />
+      <Path d="M21 17H7M11 13l-4 4 4 4" />
+    </>
+  );
+}
+
 const ICONS = {
   home: HomeIcon,
   "home-outline": HomeIcon,
@@ -257,6 +266,7 @@ const ICONS = {
   "file-tray-outline": InboxIcon,
   "time-outline": ClockIcon,
   "albums-outline": LayersIcon,
+  "swap-horizontal": SwapIcon,
 } satisfies Record<string, ComponentType>;
 
 export type IconName = keyof typeof ICONS;

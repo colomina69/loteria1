@@ -72,7 +72,7 @@ function ProximoSorteoCard({
           <View className="flex-row items-center gap-1.5">
             <Icon name="cash-outline" size={15} color="#6EE7B7" />
             <AppText className="text-xs font-semibold text-emerald-100">
-              {formatMoney(sorteo.recaudado)}
+              {formatMoney(sorteo.totalVendido)}
             </AppText>
           </View>
         </View>

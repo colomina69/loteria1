@@ -19,22 +19,31 @@ const SORTEO_RESUMEN_SELECT =
 function resumirSorteo(sorteo: SorteoRaw): SorteoResumen {
   const pagos = sorteo.pagos ?? [];
   const activos = pagos.filter(esPagoActivo);
-  const abonados = new Set(activos.map((pago) => pago.abonado_id));
+  const conAbonado = activos.filter(
+    (pago): pago is PagoMini & { abonado_id: string } =>
+      pago.abonado_id !== null,
+  );
+  const abonados = new Set(conAbonado.map((pago) => pago.abonado_id));
   const { pagos: _pagos, ...base } = sorteo;
   const decimosTotales =
     Number(base.decimos_iniciales) + Number(base.decimos_extra);
+  const precio = Number(base.precio);
+  const decimosCambiados = activos.length - conAbonado.length;
 
   return {
     ...base,
-    precio: Number(base.precio),
+    precio,
     decimos_iniciales: Number(base.decimos_iniciales),
     decimos_extra: Number(base.decimos_extra),
     tipo: tipoDesdeNombre(base.nombre),
     decimosTotales,
     decimosDisponibles: Math.max(0, decimosTotales - activos.length),
     decimos: activos.length,
+    decimosCambiados,
     abonadosCobrados: abonados.size,
-    recaudado: activos.length * Number(base.precio),
+    recaudado: conAbonado.length * precio,
+    totalVendido: activos.length * precio,
+    deudaCambios: decimosCambiados * precio,
     entregados: activos.filter((pago) => pago.estado === "delivered").length,
     pendientes: pagos.filter((pago) => pago.estado === "pending").length,
   };
