@@ -296,6 +296,13 @@ export default function CobroSorteoScreen() {
   async function guardarCobro() {
     if (!data || !seleccionadoId) return;
 
+    if (cantidad > 0 && cantidad < entregadosSeleccionado) {
+      setErrorAccion(
+        "No puedes dejar menos décimos de los ya entregados. Usa «Deshacer entrega» o deja el abonado sin movimiento.",
+      );
+      return;
+    }
+
     if (cantidad > 0 && metodo === "cambio" && nombreCambio.trim().length === 0) {
       setErrorAccion("Indica el nombre del décimo o persona del cambio.");
       return;
@@ -305,13 +312,17 @@ export default function CobroSorteoScreen() {
     setErrorAccion(null);
 
     try {
-      await registrarCobro({
-        abonadoId: seleccionadoId,
-        sorteoId: data.sorteo.id,
-        cantidad,
-        metodoPago: metodo,
-        nombreCambio: metodo === "cambio" ? nombreCambio.trim() : null,
-      });
+      if (cantidad === 0) {
+        await anularCobro(seleccionadoId, data.sorteo.id);
+      } else {
+        await registrarCobro({
+          abonadoId: seleccionadoId,
+          sorteoId: data.sorteo.id,
+          cantidad,
+          metodoPago: metodo,
+          nombreCambio: metodo === "cambio" ? nombreCambio.trim() : null,
+        });
+      }
       setSheetVisible(false);
       setSeleccionadoId(null);
       setNombreCambio("");
@@ -636,7 +647,7 @@ export default function CobroSorteoScreen() {
                     <Stepper
                       value={cantidad}
                       onChange={setCantidad}
-                      min={entregadosSeleccionado}
+                      min={0}
                       max={maxCantidad}
                     />
                   </View>
@@ -661,6 +672,12 @@ export default function CobroSorteoScreen() {
                   seleccionado.cantidad === 0 ? (
                     <AppText className="text-xs text-amber-400">
                       Sin stock disponible. Amplía el inventario del sorteo.
+                    </AppText>
+                  ) : null}
+                  {cantidad === 0 && seleccionado.cantidad > 0 ? (
+                    <AppText className="text-xs text-amber-400">
+                      Se anularán también los décimos entregados: quedarán sin
+                      cobrar y sin entregar.
                     </AppText>
                   ) : null}
                 </Card>
@@ -715,7 +732,9 @@ export default function CobroSorteoScreen() {
                 {errorAccion ? <ErrorBlock message={errorAccion} /> : null}
 
                 <Button
-                  title={cantidad === 0 ? "Dejar como pendiente" : "Guardar cobro"}
+                  title={
+                    cantidad === 0 ? "Dejar sin movimiento" : "Guardar cobro"
+                  }
                   icon="checkmark-circle-outline"
                   loading={guardando}
                   onPress={guardarCobro}

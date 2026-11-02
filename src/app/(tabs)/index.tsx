@@ -25,6 +25,7 @@ import {
   formatMoney,
 } from "@/lib/format";
 import { colors } from "@/lib/theme";
+import { APP_VERSION, BUILD_NUMBER } from "@/lib/version";
 
 function ProximoSorteoCard({
   sorteo,
@@ -244,6 +245,10 @@ export default function InicioScreen() {
                 <AppText variant="bodyStrong">{data.totalSorteos}</AppText>
               </View>
             </Card>
+
+            <AppText variant="caption" className="text-center">
+              Lotería v{APP_VERSION} · compilación {BUILD_NUMBER}
+            </AppText>
           </>
         ) : null}
       </ScrollView>

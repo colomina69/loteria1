@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lotería",
     "slug": "loteria-abonados",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "loteria",
@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.loteria.abonados",
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#09090B",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
