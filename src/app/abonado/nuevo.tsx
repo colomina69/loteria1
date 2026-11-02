@@ -24,6 +24,7 @@ import { MODALIDAD_OPTIONS } from "@/lib/derive";
 export default function NuevoAbonadoScreen() {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [modalidad, setModalidad] = useState<ModalidadAbonado>("mensual");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function NuevoAbonadoScreen() {
     setGuardando(true);
     setError(null);
     try {
-      await crearAbonado(nombre, modalidad);
+      await crearAbonado(nombre, modalidad, telefono);
       router.back();
     } catch (err) {
       setError(mensajeError(err));
@@ -64,6 +65,14 @@ export default function NuevoAbonadoScreen() {
               placeholder="Ej. María García"
               autoCapitalize="words"
               autoFocus
+            />
+
+            <Input
+              label="Teléfono (opcional)"
+              value={telefono}
+              onChangeText={setTelefono}
+              placeholder="Ej. 600 123 456"
+              keyboardType="phone-pad"
             />
 
             <View className="gap-2">

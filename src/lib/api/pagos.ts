@@ -42,7 +42,7 @@ export async function listUltimosCobros(limit = 6): Promise<PagoConRelaciones[]>
       "*,abonado:abonados(id,nombre,activo),sorteo:sorteos(id,nombre,fecha,precio)",
     )
     .not("abonado_id", "is", null)
-    .in("estado", ["paid", "delivered"])
+    .eq("estado", "paid")
     .order("fecha_pago", { ascending: false, nullsFirst: false })
     .limit(limit)
     .returns<PagoConRelaciones[]>();
@@ -118,36 +118,61 @@ export async function anularCambioSuelto(pagoId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function anularCobro(
-  abonadoId: string,
-  sorteoId: string,
-): Promise<void> {
-  await registrarCobro({
-    abonadoId,
-    sorteoId,
-    cantidad: 0,
-    metodoPago: "efectivo",
-    nombreCambio: null,
+export type RegistrarEntregaInput = {
+  abonadoId: string;
+  sorteoId: string;
+  cantidad: number;
+};
+
+/**
+ * Marca como entregados los décimos indicados sin cobrarlos.
+ * Si ya estaban cobrados, conservan su estado de cobro.
+ */
+export async function registrarEntrega(
+  input: RegistrarEntregaInput,
+): Promise<RegistrarCobroResult | null> {
+  const { data, error } = await supabase.rpc("registrar_entrega", {
+    p_abonado_id: input.abonadoId,
+    p_sorteo_id: input.sorteoId,
+    p_cantidad: Math.max(1, Math.floor(input.cantidad)),
   });
+
+  if (error) throw error;
+  return (data as RegistrarCobroResult | null) ?? null;
 }
 
-export async function marcarEntregado(
+export async function deshacerEntrega(
   abonadoId: string,
   sorteoId: string,
 ): Promise<void> {
   const { error } = await supabase
     .from("pagos")
-    .update({ estado: "delivered" })
+    .update({ entregado: false })
     .eq("abonado_id", abonadoId)
-    .eq("sorteo_id", sorteoId)
-    .in("estado", ["paid", "delivered"]);
+    .eq("sorteo_id", sorteoId);
 
   if (error) throw error;
 }
 
-export async function marcarPendiente(
+/**
+ * Deja sin movimiento todos los décimos del abonado en el sorteo:
+ * anula el cobro y la entrega, conservando las filas como historial.
+ */
+export async function anularCobro(
   abonadoId: string,
   sorteoId: string,
 ): Promise<void> {
-  await anularCobro(abonadoId, sorteoId);
+  const { error } = await supabase
+    .from("pagos")
+    .update({
+      estado: "pending",
+      entregado: false,
+      fecha_pago: null,
+      metodo_pago: null,
+      nombre_cambio: null,
+    })
+    .eq("abonado_id", abonadoId)
+    .eq("sorteo_id", sorteoId);
+
+  if (error) throw error;
 }

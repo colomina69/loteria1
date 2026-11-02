@@ -21,6 +21,7 @@ const ESTADO_LABEL: Record<EstadoCuenta, string> = {
   parcial: "Parcial",
   pagado: "Pagado",
   entregado: "Entregado",
+  entregado_sin_cobrar: "Entregado sin cobrar",
 };
 
 const ESTADO_TONE: Record<
@@ -31,6 +32,7 @@ const ESTADO_TONE: Record<
   parcial: "warning",
   pagado: "success",
   entregado: "info",
+  entregado_sin_cobrar: "warning",
 };
 
 export function TipoBadge({ tipo }: { tipo: SorteoTipo }) {

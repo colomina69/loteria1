@@ -1,13 +1,19 @@
 import { esPagoActivo } from "../derive";
 import type { PagoConRelaciones, SorteoResumen } from "../database.types";
-import { anioDeFecha, esMismoMes } from "../format";
+import {
+  esMismoMes,
+  etiquetaTemporada,
+  inicioTemporadaActual,
+  temporadaDeFecha,
+} from "../format";
 import { listAbonados } from "./abonados";
 import { listUltimosCobros } from "./pagos";
 import { listSorteos } from "./sorteos";
 
 export type DashboardData = {
   abonadosActivos: number;
-  sorteosEsteAnio: number;
+  sorteosTemporada: number;
+  temporadaEtiqueta: string;
   totalSorteos: number;
   decimosVendidos: number;
   recaudadoTotal: number;
@@ -24,20 +30,23 @@ export async function getDashboard(): Promise<DashboardData> {
     listUltimosCobros(6),
   ]);
 
-  const anioActual = new Date().getFullYear();
+  const inicioTemporada = inicioTemporadaActual();
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
   const pagosActivos = abonados
     .flatMap((abonado) => abonado.pagos)
     .filter(esPagoActivo);
+  const pagosCobrados = pagosActivos.filter(
+    (pago) => pago.estado === "paid",
+  );
 
-  const recaudadoTotal = pagosActivos.reduce(
+  const recaudadoTotal = pagosCobrados.reduce(
     (total, pago) => total + Number(pago.sorteo?.precio ?? 0),
     0,
   );
 
-  const recaudadoMes = pagosActivos
+  const recaudadoMes = pagosCobrados
     .filter((pago) => esMismoMes(pago.fecha_pago ?? pago.created_at))
     .reduce((total, pago) => total + Number(pago.sorteo?.precio ?? 0), 0);
 
@@ -50,9 +59,10 @@ export async function getDashboard(): Promise<DashboardData> {
 
   return {
     abonadosActivos: abonados.filter((abonado) => abonado.activo).length,
-    sorteosEsteAnio: sorteos.filter(
-      (sorteo) => anioDeFecha(sorteo.fecha) === anioActual,
+    sorteosTemporada: sorteos.filter(
+      (sorteo) => temporadaDeFecha(sorteo.fecha) === inicioTemporada,
     ).length,
+    temporadaEtiqueta: etiquetaTemporada(inicioTemporada),
     totalSorteos: sorteos.length,
     decimosVendidos: pagosActivos.length,
     recaudadoTotal,

@@ -127,7 +127,6 @@ function CobroReciente({
 export default function InicioScreen() {
   const router = useRouter();
   const { data, loading, refreshing, error, reload } = useAsync(getDashboard);
-  const anio = new Date().getFullYear();
 
   return (
     <Screen>
@@ -161,8 +160,8 @@ export default function InicioScreen() {
                 tone="info"
               />
               <StatCard
-                label={`Sorteos ${anio}`}
-                value={String(data.sorteosEsteAnio)}
+                label={`Sorteos ${data.temporadaEtiqueta}`}
+                value={String(data.sorteosTemporada)}
                 icon="calendar-outline"
                 tone="neutral"
               />

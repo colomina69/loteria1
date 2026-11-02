@@ -20,6 +20,7 @@ export type CobroRowData = {
   tipos: SorteoTipo[];
   modalidad: ModalidadAbonado;
   estado: EstadoCuenta;
+  cobrado: boolean;
   cantidad: number;
   monto: number;
   metodo: string | null;
@@ -34,7 +35,8 @@ export const AbonadoCobroRow = memo(function AbonadoCobroRow({
   row: CobroRowData;
   onPress: () => void;
 }) {
-  const cobrado = row.cantidad > 0;
+  const sinCobrar = row.estado === "entregado_sin_cobrar";
+  const cobrado = row.cantidad > 0 && row.cobrado;
 
   return (
     <Pressable
@@ -59,11 +61,19 @@ export const AbonadoCobroRow = memo(function AbonadoCobroRow({
           </View>
         </View>
         <View className="items-end gap-1">
-          <AppText className="text-sm font-bold text-zinc-100">
-            {cobrado ? formatMoney(row.monto) : "—"}
+          <AppText
+            className={
+              sinCobrar
+                ? "text-sm font-bold text-amber-300"
+                : "text-sm font-bold text-zinc-100"
+            }
+          >
+            {row.cantidad > 0 ? formatMoney(row.monto) : "—"}
           </AppText>
           <AppText variant="caption">
-            {cobrado ? `${row.cantidad} décimo${row.cantidad === 1 ? "" : "s"}` : "sin cobrar"}
+            {row.cantidad > 0
+              ? `${row.cantidad} décimo${row.cantidad === 1 ? "" : "s"}`
+              : "sin cobrar"}
           </AppText>
         </View>
       </View>
@@ -71,20 +81,36 @@ export const AbonadoCobroRow = memo(function AbonadoCobroRow({
       <View className="mt-3 flex-row items-center justify-between border-t border-zinc-800 pt-3">
         <View className="flex-row items-center gap-1.5">
           <Icon
-            name={cobrado ? "wallet-outline" : "time-outline"}
+            name={
+              cobrado
+                ? "wallet-outline"
+                : sinCobrar
+                  ? "cube-outline"
+                  : "time-outline"
+            }
             size={14}
-            color={colors.muted}
+            color={sinCobrar ? colors.warning : colors.muted}
           />
           <AppText
             variant="caption"
-            className={row.metodo === "cambio" ? "text-amber-300" : undefined}
+            className={
+              sinCobrar
+                ? "text-amber-300"
+                : row.metodo === "cambio"
+                  ? "text-amber-300"
+                  : undefined
+            }
           >
             {cobrado
               ? etiquetaMetodo(row.metodo, row.nombreCambio)
-              : "Pendiente"}
+              : sinCobrar
+                ? "Entregado sin cobrar"
+                : "Pendiente"}
           </AppText>
         </View>
-        <AppText variant="caption">{formatFechaHora(row.fecha)}</AppText>
+        <AppText variant="caption">
+          {row.fecha ? formatFechaHora(row.fecha) : "—"}
+        </AppText>
       </View>
     </Pressable>
   );

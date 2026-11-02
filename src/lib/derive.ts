@@ -40,20 +40,33 @@ export function tipoDesdeNombre(nombre: string): SorteoTipo {
   return "mensual";
 }
 
-export function esPagoActivo(pago: Pick<PagoRow, "estado">): boolean {
-  return pago.estado === "paid" || pago.estado === "delivered";
+export function esPagoActivo(
+  pago: Pick<PagoRow, "estado" | "entregado">,
+): boolean {
+  return pago.estado === "paid" || pago.entregado;
 }
 
-export function estadoDePagos(pagos: Pick<PagoRow, "estado">[]): EstadoCuenta {
+export function esPagoCobrado(pago: Pick<PagoRow, "estado">): boolean {
+  return pago.estado === "paid";
+}
+
+export function estadoDePagos(
+  pagos: Pick<PagoRow, "estado" | "entregado">[],
+): EstadoCuenta {
   const activos = pagos.filter(esPagoActivo);
-  const pendientes = pagos.filter((pago) => pago.estado === "pending").length;
-
   if (activos.length === 0) return "pendiente";
-  if (pendientes > 0) return "parcial";
-  return activos.every((pago) => pago.estado === "delivered") ? "entregado" : "pagado";
+
+  const cobrados = activos.filter(esPagoCobrado);
+  if (cobrados.length === 0) return "entregado_sin_cobrar";
+  if (cobrados.length < activos.length) return "parcial";
+
+  const entregados = activos.filter((pago) => pago.entregado);
+  return entregados.length === activos.length ? "entregado" : "pagado";
 }
 
-export function decimosActivos(pagos: Pick<PagoRow, "estado">[]): number {
+export function decimosActivos(
+  pagos: Pick<PagoRow, "estado" | "entregado">[],
+): number {
   return pagos.filter(esPagoActivo).length;
 }
 
@@ -83,10 +96,14 @@ export function resumenAbonado(abonado: AbonadoConHistorial): {
   sorteos: number;
 } {
   const activos = abonado.pagos.filter(esPagoActivo);
+  const cobrados = abonado.pagos.filter(esPagoCobrado);
   const sorteos = new Set(activos.map((pago) => pago.sorteo_id));
   return {
     decimos: activos.length,
-    recaudado: activos.reduce((total, pago) => total + Number(pago.sorteo?.precio ?? 0), 0),
+    recaudado: cobrados.reduce(
+      (total, pago) => total + Number(pago.sorteo?.precio ?? 0),
+      0,
+    ),
     sorteos: sorteos.size,
   };
 }
@@ -95,5 +112,5 @@ export function montoDePagos(
   pagos: Pick<PagoRow, "estado">[],
   precio: number,
 ): number {
-  return decimosActivos(pagos) * Number(precio);
+  return pagos.filter(esPagoCobrado).length * Number(precio);
 }

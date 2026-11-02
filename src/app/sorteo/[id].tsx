@@ -102,7 +102,7 @@ export default function SorteoDetalleScreen() {
     const lista = Array.from(grupos.values())
       .map((grupo) => {
         const cantidad = decimosActivos(grupo.pagos);
-        const activo = grupo.pagos.find(esPagoActivo);
+        const activo = grupo.pagos.find((pago) => pago.estado === "paid");
         return {
           ...grupo,
           estado: estadoDePagos(grupo.pagos),
@@ -115,7 +115,9 @@ export default function SorteoDetalleScreen() {
       })
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-    const conAbonado = activos.filter((pago) => pago.abonado_id !== null);
+    const conAbonadoCobrado = activos.filter(
+      (pago) => pago.abonado_id !== null && pago.estado === "paid",
+    );
     const cambios = activos
       .filter((pago) => pago.abonado_id === null)
       .map((pago) => ({
@@ -126,7 +128,7 @@ export default function SorteoDetalleScreen() {
       .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
 
     const metodos = new Map<string, { count: number; total: number }>();
-    for (const pago of conAbonado) {
+    for (const pago of conAbonadoCobrado) {
       const metodo = pago.metodo_pago ?? "sin método";
       const acumulado = metodos.get(metodo) ?? { count: 0, total: 0 };
       acumulado.count += 1;
@@ -136,14 +138,17 @@ export default function SorteoDetalleScreen() {
 
     return {
       decimos: activos.length,
-      decimosCobrados: conAbonado.length,
+      decimosCobrados: conAbonadoCobrado.length,
       decimosCambiados: cambios.length,
       abonadosCobrados: new Set(
-        conAbonado
+        conAbonadoCobrado
           .map((pago) => pago.abonado_id)
           .filter((id): id is string => id !== null),
       ).size,
-      entregados: activos.filter((pago) => pago.estado === "delivered").length,
+      entregados: activos.filter((pago) => pago.entregado).length,
+      entregadosSinCobrar: activos.filter(
+        (pago) => pago.entregado && pago.estado !== "paid",
+      ).length,
       pendientes: pagos.filter((pago) => pago.estado === "pending").length,
       metodos: Array.from(metodos.entries())
         .map(([metodo, stats]) => ({ metodo, ...stats }))
@@ -398,6 +403,21 @@ export default function SorteoDetalleScreen() {
                 <InfoRow label="Abonados con cobro" value={String(resumen.abonadosCobrados)} />
                 <InfoRow label="Décimos entregados" value={String(resumen.entregados)} />
                 <InfoRow
+                  label="Entregados sin cobrar"
+                  value={
+                    <AppText
+                      className={
+                        resumen.entregadosSinCobrar > 0
+                          ? "text-right text-sm font-semibold text-amber-300"
+                          : "text-right text-sm font-semibold"
+                      }
+                    >
+                      {resumen.entregadosSinCobrar} ·{" "}
+                      {formatMoney(resumen.entregadosSinCobrar * precio)}
+                    </AppText>
+                  }
+                />
+                <InfoRow
                   label="Décimos cambiados"
                   value={String(resumen.decimosCambiados)}
                 />
@@ -464,11 +484,11 @@ export default function SorteoDetalleScreen() {
             {error ? <ErrorBlock message={error} onRetry={reload} /> : null}
 
             <View className="gap-3">
-              <SectionHeader title="Cobros del sorteo" />
+              <SectionHeader title="Cobros y entregas" />
               {resumen.grupos.length === 0 ? (
                 <EmptyState
                   icon="receipt-outline"
-                  title="Sin cobros registrados"
+                  title="Sin movimientos registrados"
                   description="Selecciona abonados y registra sus décimos para este sorteo."
                   actionLabel="Registrar cobros"
                   onAction={() =>
@@ -503,7 +523,12 @@ export default function SorteoDetalleScreen() {
                       </AppText>
                       <View className="flex-row items-center gap-1">
                         <AppText variant="caption">
-                          {etiquetaMetodo(grupo.metodo, grupo.nombreCambio)}
+                          {grupo.estado === "entregado_sin_cobrar"
+                            ? "Entregado sin cobrar"
+                            : etiquetaMetodo(
+                                grupo.metodo,
+                                grupo.nombreCambio,
+                              )}
                         </AppText>
                         <Icon
                           name="chevron-forward"

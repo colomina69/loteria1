@@ -88,6 +88,20 @@ export function anioDeFecha(fecha: string): number {
   return Number(fecha.slice(0, 4));
 }
 
+/** Año de la temporada: empieza el 1 de septiembre. */
+export function temporadaDeFecha(fecha: string): number {
+  const [anio, mes] = fecha.split("-").map(Number);
+  return mes >= 9 ? anio : anio - 1;
+}
+
+export function inicioTemporadaActual(ref = new Date()): number {
+  return ref.getMonth() >= 8 ? ref.getFullYear() : ref.getFullYear() - 1;
+}
+
+export function etiquetaTemporada(inicio: number): string {
+  return `${inicio}/${String(inicio + 1).slice(-2)}`;
+}
+
 export function etiquetaMetodo(
   metodo: string | null | undefined,
   nombreCambio?: string | null,

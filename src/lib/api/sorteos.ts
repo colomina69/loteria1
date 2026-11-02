@@ -7,28 +7,41 @@ import type {
 } from "../database.types";
 import { supabase } from "../supabase";
 
-type PagoMini = Pick<PagoRow, "estado" | "abonado_id" | "fecha_pago">;
+type PagoMini = Pick<
+  PagoRow,
+  "estado" | "entregado" | "abonado_id" | "fecha_pago"
+>;
 
 type SorteoRaw = SorteoRow & {
   pagos: PagoMini[] | null;
 };
 
 const SORTEO_RESUMEN_SELECT =
-  "id,nombre,fecha,precio,decimos_iniciales,decimos_extra,created_at,pagos(estado,abonado_id,fecha_pago)";
+  "id,nombre,fecha,precio,decimos_iniciales,decimos_extra,created_at,pagos(estado,entregado,abonado_id,fecha_pago)";
 
 function resumirSorteo(sorteo: SorteoRaw): SorteoResumen {
   const pagos = sorteo.pagos ?? [];
   const activos = pagos.filter(esPagoActivo);
+  const cobrados = activos.filter((pago) => pago.estado === "paid");
   const conAbonado = activos.filter(
     (pago): pago is PagoMini & { abonado_id: string } =>
       pago.abonado_id !== null,
   );
-  const abonados = new Set(conAbonado.map((pago) => pago.abonado_id));
+  const conAbonadoCobrado = cobrados.filter(
+    (pago): pago is PagoMini & { abonado_id: string } =>
+      pago.abonado_id !== null,
+  );
+  const abonados = new Set(
+    conAbonadoCobrado.map((pago) => pago.abonado_id),
+  );
   const { pagos: _pagos, ...base } = sorteo;
   const decimosTotales =
     Number(base.decimos_iniciales) + Number(base.decimos_extra);
   const precio = Number(base.precio);
   const decimosCambiados = activos.length - conAbonado.length;
+  const entregadosSinCobrar = activos.filter(
+    (pago) => pago.entregado && pago.estado !== "paid",
+  ).length;
 
   return {
     ...base,
@@ -41,10 +54,11 @@ function resumirSorteo(sorteo: SorteoRaw): SorteoResumen {
     decimos: activos.length,
     decimosCambiados,
     abonadosCobrados: abonados.size,
-    recaudado: conAbonado.length * precio,
+    recaudado: conAbonadoCobrado.length * precio,
     totalVendido: activos.length * precio,
     deudaCambios: decimosCambiados * precio,
-    entregados: activos.filter((pago) => pago.estado === "delivered").length,
+    deudaEntregados: entregadosSinCobrar * precio,
+    entregados: activos.filter((pago) => pago.entregado).length,
     pendientes: pagos.filter((pago) => pago.estado === "pending").length,
   };
 }

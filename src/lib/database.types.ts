@@ -2,7 +2,7 @@ export type SorteoTipo = "mensual" | "navidad" | "nino" | "extraordinario";
 
 export type ModalidadAbonado = "mensual" | "extraordinario";
 
-export type PagoEstado = "pending" | "paid" | "delivered";
+export type PagoEstado = "pending" | "paid";
 
 export type SorteoRow = {
   id: string;
@@ -17,6 +17,7 @@ export type SorteoRow = {
 export type AbonadoRow = {
   id: string;
   nombre: string;
+  telefono: string | null;
   activo: boolean;
   modalidad: ModalidadAbonado;
   created_at: string;
@@ -26,7 +27,8 @@ export type PagoRow = {
   id: string;
   abonado_id: string | null;
   sorteo_id: string;
-  estado: string;
+  estado: PagoEstado;
+  entregado: boolean;
   fecha_pago: string | null;
   created_at: string;
   metodo_pago: string | null;
@@ -64,11 +66,17 @@ export type SorteoResumen = SorteoRow & {
   recaudado: number;
   totalVendido: number;
   deudaCambios: number;
+  deudaEntregados: number;
   entregados: number;
   pendientes: number;
 };
 
-export type EstadoCuenta = "pendiente" | "pagado" | "entregado" | "parcial";
+export type EstadoCuenta =
+  | "pendiente"
+  | "pagado"
+  | "entregado"
+  | "entregado_sin_cobrar"
+  | "parcial";
 
 export type MetodoPago =
   | "efectivo"

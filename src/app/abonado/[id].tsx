@@ -33,7 +33,6 @@ import { actualizarAbonado, getAbonado } from "@/lib/api/abonados";
 import { mensajeError } from "@/lib/api/errors";
 import {
   decimosActivos,
-  esPagoActivo,
   estadoDePagos,
   MODALIDAD_OPTIONS,
   resumenAbonado,
@@ -88,7 +87,7 @@ function construirHistorial(
       (item) => item.sorteo_id === pago.sorteo_id,
     );
     const cantidad = decimosActivos(pagosDelSorteo);
-    const activo = pagosDelSorteo.find(esPagoActivo);
+    const activo = pagosDelSorteo.find((pago) => pago.estado === "paid");
 
     grupos.set(pago.sorteo_id, {
       ...actual,
@@ -107,6 +106,7 @@ function construirHistorial(
 function AbonadoEditor({ abonado }: { abonado: AbonadoConHistorial }) {
   const router = useRouter();
   const [nombre, setNombre] = useState(abonado.nombre);
+  const [telefono, setTelefono] = useState(abonado.telefono ?? "");
   const [modalidad, setModalidad] = useState<ModalidadAbonado>(abonado.modalidad);
   const [activo, setActivo] = useState(abonado.activo);
   const [guardando, setGuardando] = useState(false);
@@ -121,7 +121,12 @@ function AbonadoEditor({ abonado }: { abonado: AbonadoConHistorial }) {
     setGuardando(true);
     setErrorAccion(null);
     try {
-      await actualizarAbonado(abonado.id, { nombre, activo, modalidad });
+      await actualizarAbonado(abonado.id, {
+        nombre,
+        telefono,
+        activo,
+        modalidad,
+      });
       router.back();
     } catch (err) {
       setErrorAccion(mensajeError(err));
@@ -139,6 +144,13 @@ function AbonadoEditor({ abonado }: { abonado: AbonadoConHistorial }) {
         onChangeText={setNombre}
         placeholder="Nombre del abonado"
         autoCapitalize="words"
+      />
+      <Input
+        label="Teléfono (opcional)"
+        value={telefono}
+        onChangeText={setTelefono}
+        placeholder="Ej. 600 123 456"
+        keyboardType="phone-pad"
       />
       <View className="gap-2">
         <AppText variant="label">Tipo de abonado</AppText>
@@ -212,6 +224,9 @@ export default function AbonadoDetalleScreen() {
               <View className="flex-row items-start justify-between gap-3">
                 <View className="flex-1 gap-1">
                   <AppText variant="title">{data.nombre}</AppText>
+                  {data.telefono ? (
+                    <AppText variant="caption">{data.telefono}</AppText>
+                  ) : null}
                   <AppText variant="caption">
                     Alta: {formatFechaCorta(data.created_at.slice(0, 10))}
                   </AppText>
@@ -294,16 +309,38 @@ export default function AbonadoDetalleScreen() {
                     <View className="mt-2 flex-row items-center justify-between border-t border-zinc-800 pt-2">
                       <View className="flex-row items-center gap-1.5">
                         <Icon
-                          name="wallet-outline"
+                          name={
+                            grupo.estado === "entregado_sin_cobrar"
+                              ? "cube-outline"
+                              : "wallet-outline"
+                          }
                           size={13}
-                          color={colors.muted}
+                          color={
+                            grupo.estado === "entregado_sin_cobrar"
+                              ? colors.warning
+                              : colors.muted
+                          }
                         />
-                        <AppText variant="caption">
-                          {etiquetaMetodo(grupo.metodo, grupo.nombreCambio)}
+                        <AppText
+                          variant="caption"
+                          className={
+                            grupo.estado === "entregado_sin_cobrar"
+                              ? "text-amber-300"
+                              : undefined
+                          }
+                        >
+                          {grupo.estado === "entregado_sin_cobrar"
+                            ? "Entregado sin cobrar"
+                            : etiquetaMetodo(
+                                grupo.metodo,
+                                grupo.nombreCambio,
+                              )}
                         </AppText>
                       </View>
                       <AppText variant="caption">
-                        {formatFechaHora(grupo.fechaPago)}
+                        {grupo.fechaPago
+                          ? formatFechaHora(grupo.fechaPago)
+                          : "—"}
                       </AppText>
                     </View>
                   </Pressable>

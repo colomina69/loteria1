@@ -95,6 +95,20 @@ export const SorteoCard = memo(function SorteoCard({
         </View>
       ) : null}
 
+      {sorteo.deudaEntregados > 0 ? (
+        <View className="mt-2 flex-row items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <View className="flex-row items-center gap-1.5">
+            <Icon name="cube-outline" size={14} color={colors.warning} />
+            <AppText className="text-xs font-semibold text-amber-200">
+              Debo por entregados sin cobrar
+            </AppText>
+          </View>
+          <AppText className="text-sm font-bold text-amber-300">
+            {formatMoney(sorteo.deudaEntregados)}
+          </AppText>
+        </View>
+      ) : null}
+
       {sorteo.tipo === "mensual" ? (
         <View className="mt-4 flex-row items-center gap-1.5">
           <Icon

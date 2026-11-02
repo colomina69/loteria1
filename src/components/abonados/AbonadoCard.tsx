@@ -39,6 +39,11 @@ export const AbonadoCard = memo(function AbonadoCard({
             </AppText>
             {!abonado.activo ? <Badge label="Inactivo" tone="danger" /> : null}
           </View>
+          {abonado.telefono ? (
+            <AppText variant="caption" numberOfLines={1}>
+              {abonado.telefono}
+            </AppText>
+          ) : null}
           <View className="flex-row flex-wrap items-center gap-1">
             <ModalidadBadge modalidad={abonado.modalidad} />
             <TipoBadges

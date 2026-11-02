@@ -34,9 +34,10 @@ import { listAbonados } from "@/lib/api/abonados";
 import { mensajeError } from "@/lib/api/errors";
 import {
   anularCobro,
-  marcarEntregado,
+  deshacerEntrega as deshacerEntregaApi,
   registrarCambioSuelto,
   registrarCobro,
+  registrarEntrega,
 } from "@/lib/api/pagos";
 import { getSorteo } from "@/lib/api/sorteos";
 import {
@@ -127,6 +128,7 @@ export default function CobroSorteoScreen() {
       return {
         activos: 0,
         cobrados: 0,
+        entregadosSinCobrar: 0,
         cambios: 0,
         abonadosCobrados: 0,
         recaudado: 0,
@@ -136,10 +138,15 @@ export default function CobroSorteoScreen() {
     }
 
     const activos = data.sorteo.pagos.filter(esPagoActivo);
+    const cobrados = activos.filter(
+      (pago) => pago.estado === "paid" && pago.abonado_id !== null,
+    );
     const cambios = activos.filter((pago) => pago.abonado_id === null).length;
-    const cobrados = activos.length - cambios;
+    const entregadosSinCobrar = activos.filter(
+      (pago) => pago.entregado && pago.estado !== "paid",
+    ).length;
     const abonados = new Set(
-      activos
+      cobrados
         .map((pago) => pago.abonado_id)
         .filter((id): id is string => id !== null),
     );
@@ -147,10 +154,11 @@ export default function CobroSorteoScreen() {
 
     return {
       activos: activos.length,
-      cobrados,
+      cobrados: cobrados.length,
+      entregadosSinCobrar,
       cambios,
       abonadosCobrados: abonados.size,
-      recaudado: cobrados * precioSorteo,
+      recaudado: cobrados.length * precioSorteo,
       totalVendido: activos.length * precioSorteo,
       deudaCambios: cambios * precioSorteo,
     };
@@ -167,7 +175,9 @@ export default function CobroSorteoScreen() {
   const metodos = useMemo(() => {
     if (!data) return [];
     const mapa = new Map<string, number>();
-    for (const pago of data.sorteo.pagos.filter(esPagoActivo)) {
+    for (const pago of data.sorteo.pagos.filter(
+      (item) => item.estado === "paid" && item.abonado_id !== null,
+    )) {
       const metodo = pago.metodo_pago ?? "sin método";
       mapa.set(metodo, (mapa.get(metodo) ?? 0) + 1);
     }
@@ -184,7 +194,7 @@ export default function CobroSorteoScreen() {
         const pagos = abonado.pagos.filter(
           (pago) => pago.sorteo_id === data.sorteo.id,
         );
-        const activo = pagos.find(esPagoActivo);
+        const activo = pagos.find((pago) => pago.estado === "paid");
         const decimos = decimosActivos(pagos);
 
         return {
@@ -193,6 +203,7 @@ export default function CobroSorteoScreen() {
           tipos: tiposDeAbonado(abonado),
           modalidad: abonado.modalidad,
           estado: estadoDePagos(pagos),
+          cobrado: pagos.some((pago) => pago.estado === "paid"),
           cantidad: decimos,
           monto: decimos * precio,
           metodo: activo?.metodo_pago ?? null,
@@ -210,10 +221,14 @@ export default function CobroSorteoScreen() {
       )
       .filter((fila) => {
         if (filtroEstado === "pendientes") {
-          return fila.estado === "pendiente" || fila.estado === "parcial";
+          return (
+            fila.estado === "pendiente" ||
+            fila.estado === "parcial" ||
+            fila.estado === "entregado_sin_cobrar"
+          );
         }
         if (filtroEstado === "cobrados") {
-          return fila.estado === "pagado" || fila.estado === "entregado";
+          return fila.cobrado;
         }
         return true;
       })
@@ -225,7 +240,7 @@ export default function CobroSorteoScreen() {
   }, [baseRows, busqueda, filtroEstado]);
 
   const resumen = useMemo(() => {
-    const cobrados = baseRows.filter((fila) => fila.cantidad > 0);
+    const cobrados = baseRows.filter((fila) => fila.cobrado);
     return {
       elegibles: baseRows.length,
       cobrados: cobrados.length,
@@ -244,13 +259,19 @@ export default function CobroSorteoScreen() {
 
   const yaEntregado =
     pagosSeleccionado.length > 0 &&
-    pagosSeleccionado.filter(esPagoActivo).every((pago) => pago.estado === "delivered");
+    pagosSeleccionado
+      .filter(esPagoActivo)
+      .every((pago) => pago.entregado);
   const entregadosSeleccionado = pagosSeleccionado.filter(
-    (pago) => pago.estado === "delivered",
+    (pago) => pago.entregado,
   ).length;
-  const puedeAnular =
-    entregadosSeleccionado === 0 &&
-    pagosSeleccionado.some((pago) => pago.estado === "paid");
+  const cobradosSeleccionado = pagosSeleccionado.filter(
+    (pago) => pago.estado === "paid",
+  ).length;
+  const sinCobrarSeleccionado = pagosSeleccionado.filter(
+    (pago) => pago.entregado && pago.estado !== "paid",
+  ).length;
+  const puedeAnular = pagosSeleccionado.some(esPagoActivo);
   const maxCantidad = seleccionado
     ? seleccionado.cantidad + (tipo === "mensual" ? 99 : stockDisponibles)
     : 0;
@@ -342,12 +363,12 @@ export default function CobroSorteoScreen() {
   function confirmarAnulacion() {
     if (!data || !seleccionadoId) return;
     Alert.alert(
-      "Anular cobro",
-      "Los décimos de este abonado en el sorteo pasarán a estado pendiente.",
+      "Dejar sin movimiento",
+      "Se anularán el cobro y la entrega de este abonado en el sorteo. Los décimos quedarán sin movimiento; el historial no se borra.",
       [
         { text: "Cancelar", style: "cancel" },
         {
-          text: "Anular",
+          text: "Dejar sin movimiento",
           style: "destructive",
           onPress: async () => {
             setGuardando(true);
@@ -369,11 +390,31 @@ export default function CobroSorteoScreen() {
   }
 
   async function entregar() {
+    if (!data || !seleccionadoId || cantidad <= 0) return;
+    setGuardando(true);
+    setErrorAccion(null);
+    try {
+      await registrarEntrega({
+        abonadoId: seleccionadoId,
+        sorteoId: data.sorteo.id,
+        cantidad,
+      });
+      setSheetVisible(false);
+      setSeleccionadoId(null);
+      await reload();
+    } catch (err) {
+      setErrorAccion(mensajeError(err));
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function deshacerEntrega() {
     if (!data || !seleccionadoId) return;
     setGuardando(true);
     setErrorAccion(null);
     try {
-      await marcarEntregado(seleccionadoId, data.sorteo.id);
+      await deshacerEntregaApi(seleccionadoId, data.sorteo.id);
       setSheetVisible(false);
       setSeleccionadoId(null);
       await reload();
@@ -482,8 +523,9 @@ export default function CobroSorteoScreen() {
                   <View className="flex-row items-center gap-1.5">
                     <Icon name="information-circle-outline" size={14} color={colors.muted} />
                     <AppText variant="caption">
-                      {totalesSorteo.cobrados} décimos cobrados ·{" "}
-                      {totalesSorteo.cambios} cambiados sin abonado
+                      {totalesSorteo.cobrados} cobrados ·{" "}
+                      {totalesSorteo.entregadosSinCobrar} sin cobrar ·{" "}
+                      {totalesSorteo.cambios} cambiados
                     </AppText>
                   </View>
 
@@ -646,16 +688,27 @@ export default function CobroSorteoScreen() {
 
                 {seleccionado.cantidad > 0 ? (
                   <View className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2">
-                    <AppText variant="caption">
-                      Cobrado: {formatFechaHora(seleccionado.fecha)}
-                    </AppText>
-                    <AppText variant="caption">
-                      Método:{" "}
-                      {etiquetaMetodo(
-                        seleccionado.metodo,
-                        seleccionado.nombreCambio,
-                      )}
-                    </AppText>
+                    {cobradosSeleccionado > 0 ? (
+                      <>
+                        <AppText variant="caption">
+                          Cobrado: {formatFechaHora(seleccionado.fecha)}
+                        </AppText>
+                        <AppText variant="caption">
+                          Método:{" "}
+                          {etiquetaMetodo(
+                            seleccionado.metodo,
+                            seleccionado.nombreCambio,
+                          )}
+                        </AppText>
+                      </>
+                    ) : null}
+                    {sinCobrarSeleccionado > 0 ? (
+                      <AppText className="text-xs font-semibold text-amber-300">
+                        {sinCobrarSeleccionado} décimo
+                        {sinCobrarSeleccionado === 1 ? "" : "s"} entregado
+                        {sinCobrarSeleccionado === 1 ? "" : "s"} sin cobrar
+                      </AppText>
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -668,19 +721,39 @@ export default function CobroSorteoScreen() {
                   onPress={guardarCobro}
                 />
 
-                {seleccionado.cantidad > 0 && !yaEntregado ? (
+                {cantidad > 0 ? (
+                  <>
+                    <Button
+                      title={
+                        yaEntregado && cantidad === seleccionado.cantidad
+                          ? "Actualizar entrega"
+                          : "Entregar décimos"
+                      }
+                      variant="secondary"
+                      icon="cube-outline"
+                      disabled={guardando}
+                      onPress={entregar}
+                    />
+                    <AppText variant="caption">
+                      Los décimos que aún no estén cobrados quedarán como
+                      entregados sin cobrar.
+                    </AppText>
+                  </>
+                ) : null}
+
+                {entregadosSeleccionado > 0 ? (
                   <Button
-                    title="Marcar como entregado"
+                    title="Deshacer entrega"
                     variant="secondary"
-                    icon="cube-outline"
+                    icon="close-circle-outline"
                     disabled={guardando}
-                    onPress={entregar}
+                    onPress={deshacerEntrega}
                   />
                 ) : null}
 
                 {puedeAnular ? (
                   <Button
-                    title="Anular cobro"
+                    title="Dejar sin movimiento"
                     variant="danger"
                     icon="close-circle-outline"
                     disabled={guardando}
